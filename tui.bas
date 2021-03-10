@@ -2,11 +2,15 @@ Option _Explicit
 Dim As Long result
 Dim As Long form, button1, button2, check1, label1
 
+result = tui("set;highintensity=true")
+result = tui("set;defaults;fg=0;bg=7;hoverfg=15;hoverbg=2")
 form = tui("add;type=form;shadow=true;name=form1;caption=Hello, world!;align=center;w=50;h=12;fg=0;bg=15")
-button1 = tui("add;type=button;shadow=true;parent=form1;name=button1;caption=Click me;align=center;fg=0;bg=7;hoverfg=15;hoverbg=2")
-check1 = tui("add;type=checkbox;parent=form1;name=check1;caption=Check me;x=10;y=10;color=inherit")
-label1 = tui("add;type=label;parent=form1;name=label1;caption=Nothing to show;align=center;y=8;fg=7;bg=8")
-button2 = tui("add;shadow=true;parent=form1;type=button;name=button2;caption=Close;x=40;y=9;fg=0;bg=7;hoverfg=15;hoverbg=2")
+
+result = tui("set;defaults;parent=form1")
+button1 = tui("add;type=button;shadow=true;name=button1;caption=Click me;align=center;fg=31;bg=9")
+check1 = tui("add;type=checkbox;name=check1;caption=Check me;x=10;y=10;hoverfg=-1;hoverbg=-1")
+label1 = tui("add;type=label;name=label1;caption=Nothing to show;align=center;y=8;hoverbg=-1")
+button2 = tui("add;shadow=true;type=button;name=button2;caption=Close;x=40;y=9;fg=31;bg=8")
 
 Do
     Color , 1
@@ -15,9 +19,9 @@ Do
         Select Case tui("control")
             Case button1
                 If tui("get;control=check1;value") Then
-                    result = tui("set;control=label1;caption=The box is checked.;fg=7")
+                    result = tui("set;control=label1;caption=The box is checked.;fg=-1")
                 Else
-                    result = tui("set;control=label1;caption=The box is unchecked.;fg=7")
+                    result = tui("set;control=label1;caption=The box is unchecked.;fg=-1")
                 End If
             Case button2
                 System
@@ -49,10 +53,11 @@ Function tui& (action As String) Static
     Dim As Long mouseDownX, mouseDownY
     Dim As Integer prevFG, prevBG
     Dim As _Byte setup, mouseDown, fetchMouse, showFocus, fetchedKeyboard
-    Dim As _Byte draggingForm
+    Dim As _Byte draggingForm, highIntensity
 
     If setup = 0 Then
         ReDim control(100) As newControl
+        Dim defaults As newControl
         fetchMouse = -1
         showFocus = -1
         setup = -1
@@ -68,16 +73,29 @@ Function tui& (action As String) Static
                 ReDim _Preserve control(UBound(control) + 100) As newControl
             End If
 
-            control(this).type = controlType(getParam(action, "type"))
-            control(this).name = getParam(action, "name")
+            control(this) = defaults
+
+            temp = getParam(action, "type")
+            If Len(temp) Then control(this).type = controlType(temp)
+
+            temp = getParam(action, "name")
+            If Len(temp) Then control(this).name = temp
+
             temp = getParam(action, "parent")
-            If Len(temp) Then GoSub addParent
+            If Len(temp) Then
+                GoSub getParentID
+                control(i).parent = j
+            End If
 
-            control(this).shadow = (getParam(action, "shadow") = "true")
+            temp = getParam(action, "shadow")
+            If Len(temp) Then control(this).shadow = (LCase$(temp) = "true")
 
-            control(this).caption = getParam(action, "caption")
-            If control(this).type = controlType("form") Then
-                control(this).caption = " " + control(this).caption + " "
+            temp = getParam(action, "caption")
+            If Len(temp) Then
+                control(this).caption = temp
+                If control(this).type = controlType("form") Then
+                    control(this).caption = " " + control(this).caption + " "
+                End If
             End If
 
             temp = getParam(action, "w")
@@ -89,6 +107,7 @@ Function tui& (action As String) Static
             ElseIf Val(temp) > 0 Then
                 control(this).w = Val(temp)
             End If
+
             temp = getParam(action, "h")
             If Len(temp) = 0 Then
                 control(this).h = 1
@@ -109,12 +128,12 @@ Function tui& (action As String) Static
             End Select
 
             temp = getParam(action, "x")
-            If Len(temp) > 0 Then control(this).x = Val(temp)
+            If Len(temp) Then control(this).x = Val(temp)
+
             temp = getParam(action, "y")
-            If Len(temp) > 0 Then control(this).y = Val(temp)
+            If Len(temp) Then control(this).y = Val(temp)
 
             result = getParam(action, "color")
-            If result = "" Then result = "inherit"
             If result = "inherit" And control(this).parent > 0 Then
                 control(this).fg = control(control(this).parent).fg
                 control(this).bg = control(control(this).parent).bg
@@ -122,22 +141,17 @@ Function tui& (action As String) Static
                 control(this).hoverbg = control(control(this).parent).hoverbg
             End If
 
-            control(this).fg = paramVal(getParam(action, "fg"))
-            control(this).hoverfg = paramVal(getParam(action, "hoverfg"))
-            control(this).bg = paramVal(getParam(action, "bg"))
-            If control(this).bg > 7 Then
-                'enable high intensity bg colors
-                control(this).fg = control(this).fg + 16
-                control(this).bg = control(this).bg - 8
-                _Blink Off
-            End If
-            control(this).hoverbg = paramVal(getParam(action, "hoverbg"))
-            If control(this).hoverbg > 7 Then
-                'enable high intensity bg colors
-                control(this).hoverfg = control(this).hoverfg + 16
-                control(this).hoverbg = control(this).hoverbg - 8
-                _Blink Off
-            End If
+            temp = getParam(action, "fg")
+            If Len(temp) Then control(this).fg = paramVal(temp)
+
+            temp = getParam(action, "hoverfg")
+            If Len(temp) Then control(this).hoverfg = paramVal(temp)
+
+            temp = getParam(action, "bg")
+            If Len(temp) Then control(this).bg = paramVal(temp)
+
+            temp = getParam(action, "hoverbg")
+            If Len(temp) Then control(this).hoverbg = paramVal(temp)
 
             tui& = this
         Case "clicked"
@@ -162,8 +176,12 @@ Function tui& (action As String) Static
 
                 If mx >= x And mx <= x + control(i).w - 1 And my >= y And my <= y + control(i).h - 1 Then
                     hover = i
-                    If control(i).hoverfg > -1 Then Color control(i).hoverfg
-                    If control(i).hoverbg > -1 Then Color , control(i).hoverbg
+                    Select Case control(i).type
+                        Case controlType("form")
+                        Case Else
+                            If control(i).hoverfg > -1 Then Color control(i).hoverfg
+                            If control(i).hoverbg > -1 Then Color , control(i).hoverbg
+                    End Select
                 End If
 
                 Select Case control(i).type
@@ -188,14 +206,15 @@ Function tui& (action As String) Static
                         k = _KeyHit 'read keyboard input if a form is up
                         fetchedKeyboard = -1
                     Case controlType("button")
-                        If mouseDownOn = i And hover = i And control(i).shadow Then x = x + 1
+                        If control(i).shadow And ((focus = i And _KeyDown(32)) Or (mouseDownOn = i And hover = i)) Then
+                            x = x + 1
+                        End If
                         _PrintString (x, y), " " + control(i).caption + " "
-                        If control(i).shadow And (hover <> i Or (hover = i And mouseDownOn <> i)) Then
-                            If _Blink Then j = 0 Else j = 16
+                        If control(i).shadow And (hover <> i Or (hover = i And mouseDownOn <> i)) And (focus <> i Or (focus = i And _KeyDown(32) = 0)) Then
                             If control(i).parent > 0 Then
-                                Color j, control(control(i).parent).bg
+                                Color 0, control(control(i).parent).bg
                             Else
-                                Color j, prevBG
+                                Color 0, prevBG
                             End If
                             _PrintString (x + Len(control(i).caption) + 2, y), Chr$(220)
                             _PrintString (x + 1, y + 1), String$(Len(control(i).caption) + 2, 223)
@@ -217,6 +236,7 @@ Function tui& (action As String) Static
                         End If
                 End Select
             Next
+            Color prevFG, prevBG
 
             Select Case k
                 Case -9
@@ -224,6 +244,11 @@ Function tui& (action As String) Static
                         focus = focus + 1
                         If focus > totalControls Then focus = 1
                     Loop While control(focus).type = controlType("form") Or control(focus).type = controlType("label")
+                Case -13
+                    Select Case control(focus).type
+                        Case controlType("button")
+                            clicked = focus
+                    End Select
                 Case -32
                     Select Case control(focus).type
                         Case controlType("button")
@@ -311,17 +336,60 @@ Function tui& (action As String) Static
                         fetchMouse = (LCase$(result) = "true")
                     Case "showfocus"
                         showFocus = (LCase$(result) = "true")
+                    Case "highintensity"
+                        highIntensity = (LCase$(result) = "true")
+                        If highIntensity Then _Blink Off Else _Blink On
+                    Case "defaults"
+                        temp = getParam(action, "parent")
+                        If Len(temp) Then
+                            GoSub getParentID
+                            defaults.parent = j
+                        End If
+
+                        temp = getParam(action, "w")
+                        If Len(temp) Then defaults.w = Val(temp)
+
+                        temp = getParam(action, "h")
+                        If Len(temp) Then defaults.h = Val(temp)
+
+                        temp = getParam(action, "x")
+                        If Len(temp) Then defaults.x = Val(temp)
+
+                        temp = getParam(action, "y")
+                        If Len(temp) Then defaults.y = Val(temp)
+
+                        temp = getParam(action, "value")
+                        If Len(temp) Then defaults.value = Val(temp)
+
+                        temp = getParam(action, "fg")
+                        If Len(temp) Then defaults.fg = Val(temp)
+
+                        temp = getParam(action, "hoverfg")
+                        If Len(temp) Then defaults.hoverfg = Val(temp)
+
+                        temp = getParam(action, "bg")
+                        If Len(temp) Then defaults.bg = Val(temp)
+
+                        temp = getParam(action, "hoverbg")
+                        If Len(temp) Then defaults.hoverbg = Val(temp)
+
+                        temp = getParam(action, "shadow")
+                        If Len(temp) Then defaults.shadow = (LCase$(temp) = "true")
                     Case "control"
                         temp = getParam(action, temp)
                         GoSub getControlID
 
-                        result = getParam(action, "caption")
-                        If Len(result) > 0 Then control(this).caption = result
+                        j = 0
+                        temp = getParam(action, "caption")
+                        If Len(temp) > 0 Then
+                            control(this).caption = temp
+                            j = -1
+                        End If
 
                         temp = getParam(action, "w")
                         If Val(temp) > 0 Then control(this).w = Val(temp)
-                        If Len(temp) = 0 Then
-                            Select EveryCase control(this).type
+                        If Len(temp) = 0 And j Then
+                            Select Case control(this).type
                                 Case controlType("button")
                                     control(this).w = Len(control(this).caption) + 2
                                 Case controlType("checkbox")
@@ -330,11 +398,13 @@ Function tui& (action As String) Static
                         End If
 
                         temp = getParam(action, "h")
-                        If Val(temp) > 0 Then control(this).h = Val(temp)
+                        If Len(temp) Then control(this).h = Val(temp)
+
                         temp = getParam(action, "x")
-                        If Val(temp) > 0 Then control(this).x = Val(temp)
+                        If Len(temp) Then control(this).x = Val(temp)
+
                         temp = getParam(action, "y")
-                        If Val(temp) > 0 Then control(this).y = Val(temp)
+                        If Len(temp) Then control(this).y = Val(temp)
 
                         result = getParam(action, "color")
                         If result = "inherit" And control(this).parent > 0 Then
@@ -344,25 +414,19 @@ Function tui& (action As String) Static
                         End If
 
                         temp = getParam(action, "fg")
-                        If Len(temp) > 0 Then control(this).fg = Val(temp)
+                        If Len(temp) Then control(this).fg = Val(temp)
+                        temp = getParam(action, "hoverfg")
+                        If Len(temp) Then control(this).hoverfg = Val(temp)
                         temp = getParam(action, "bg")
-                        If Len(temp) > 0 Then control(this).bg = Val(temp)
+                        If Len(temp) Then control(this).bg = Val(temp)
                         temp = getParam(action, "hoverbg")
-                        If Len(temp) > 0 Then control(this).hoverbg = Val(temp)
+                        If Len(temp) Then control(this).hoverbg = Val(temp)
 
-                        If control(this).bg > 7 Then
-                            'enable high intensity bg colors
-                            control(this).fg = control(this).fg + 16
-                            control(this).bg = control(this).bg - 8
-                            _Blink Off
-                        End If
+                        temp = getParam(action, "shadow")
+                        If Len(temp) Then control(this).shadow = (LCase$(temp) = "true")
 
-                        If control(this).hoverbg > 7 Then
-                            'enable high intensity bg colors
-                            control(this).hoverfg = control(this).hoverfg + 16
-                            control(this).hoverbg = control(this).hoverbg - 8
-                            _Blink Off
-                        End If
+                        temp = getParam(action, "value")
+                        If Len(temp) Then control(this).value = Val(temp)
                 End Select
             Loop
         Case Else
@@ -373,22 +437,22 @@ Function tui& (action As String) Static
 
     Exit Function
 
-    addParent:
+    getParentID:
     'temp contains the name of the parent control
-    For i = 1 To totalControls
-        If control(i).name = temp Then
-            control(this).parent = i
+    For j = 1 To totalControls
+        If control(j).name = temp Then
             Return
         End If
     Next
+    j = 0
     Return
 
     getControlID:
     'temp contains the name of the control we're looking for
     this = 0
-    For i = 1 To totalControls
-        If control(i).name = temp Then
-            this = i
+    For j = 1 To totalControls
+        If control(j).name = temp Then
+            this = j
             Return
         End If
     Next
