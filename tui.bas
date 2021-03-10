@@ -2,36 +2,38 @@ Option _Explicit
 Dim As Long result
 Dim As Long form, button1, button2, check1, label1
 
-result = tui("set;highintensity=true")
-result = tui("set;defaults;fg=0;bg=7;hoverfg=15;hoverbg=2")
-form = tui("add;type=form;shadow=true;name=form1;caption=Hello, world!;align=center;w=50;h=12;fg=0;bg=15")
+result = tui("set highintensity=true")
+result = tui("set defaults;fg=0;bg=7;fghover=16;bghover=2")
+form = tui("add type=form;name=form1;caption=Hello, world!;align=center;w=50;h=8")
 
-result = tui("set;defaults;parent=form1")
-button1 = tui("add;type=button;shadow=true;name=button1;caption=Click me;align=center;fg=31;bg=9")
-check1 = tui("add;type=checkbox;name=check1;caption=Check me;x=10;y=10;hoverfg=-1;hoverbg=-1")
-label1 = tui("add;type=label;name=label1;caption=Nothing to show;align=center;y=8;hoverbg=-1")
-button2 = tui("add;shadow=true;type=button;name=button2;caption=Close;x=40;y=9;fg=31;bg=8")
+result = tui("set defaults;parent=form1")
+check1 = tui("add type=checkbox;value=-1;name=check1;caption=I'm set!;x=2;y=2;fghover=-1;bghover=-1")
+label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=3;bghover=-1")
+button1 = tui("add type=button;name=button1;caption=Click me;align=center;y=5;w=20;fg=31;bg=9")
+button2 = tui("add type=button;name=button2;caption=Close;x=40;y=5;fg=31;bg=8")
+
+result = tui("set focus;control=check1")
 
 Do
-    Color , 1
+    Color 31, 0
     Cls
     If tui("clicked") Then
         Select Case tui("control")
             Case button1
-                If tui("get;control=check1;value") Then
-                    result = tui("set;control=label1;caption=The box is checked.;fg=-1")
+                If tui("get control=check1;value") Then
+                    result = tui("set control=label1;caption=The box is checked.;fg=-1")
                 Else
-                    result = tui("set;control=label1;caption=The box is unchecked.;fg=-1")
+                    result = tui("set control=label1;caption=The box is unchecked.;fg=-1")
                 End If
             Case button2
                 System
             Case label1
-                result = tui("set;control=label1;caption=This is not a button!;fg=4")
+                result = tui("set control=label1;caption=This is not a button!;fg=4;fghover=20")
             Case check1
-                If tui("get;control=check1;value") Then
-                    result = tui("set;control=check1;caption=I'm set!")
+                If tui("get control=check1;value") Then
+                    result = tui("set control=check1;caption=I'm set!")
                 Else
-                    result = tui("set;control=check1;caption=I'm not set...")
+                    result = tui("set control=check1;caption=I'm not set...")
                 End If
         End Select
     End If
@@ -42,8 +44,8 @@ Loop
 Function tui& (action As String) Static
     Type newControl
         As Long type, parent, x, y, w, h, value
-        As Integer fg, bg, hoverfg, hoverbg
-        As String name, caption
+        As Integer fg, bg, fghover, bghover
+        As String name, caption, text
         As _Byte shadow
     End Type
 
@@ -53,11 +55,12 @@ Function tui& (action As String) Static
     Dim As Long mouseDownX, mouseDownY
     Dim As Integer prevFG, prevBG
     Dim As _Byte setup, mouseDown, fetchMouse, showFocus, fetchedKeyboard
-    Dim As _Byte draggingForm, highIntensity
+    Dim As _Byte draggingForm, highIntensity, captionSet
 
     If setup = 0 Then
         ReDim control(100) As newControl
         Dim defaults As newControl
+        defaults.shadow = -1
         fetchMouse = -1
         showFocus = -1
         setup = -1
@@ -75,44 +78,38 @@ Function tui& (action As String) Static
 
             control(this) = defaults
 
-            temp = getParam(action, "type")
-            If Len(temp) Then control(this).type = controlType(temp)
-
-            temp = getParam(action, "name")
-            If Len(temp) Then control(this).name = temp
-
-            temp = getParam(action, "parent")
-            If Len(temp) Then
+            If passed(action, "type") Then control(this).type = controlType(getParam(action, "type"))
+            If passed(action, "name") Then control(this).name = getParam(action, "name")
+            If passed(action, "parent") Then
+                temp = getParam(action, "parent")
                 GoSub getParentID
                 control(i).parent = j
             End If
-
-            temp = getParam(action, "shadow")
-            If Len(temp) Then control(this).shadow = (LCase$(temp) = "true")
-
-            temp = getParam(action, "caption")
-            If Len(temp) Then
+            If passed(action, "shadow") Then control(this).shadow = (LCase$(getParam(action, "shadow")) = "true")
+            If passed(action, "caption") Then
+                temp = getParam(action, "caption")
                 control(this).caption = temp
                 If control(this).type = controlType("form") Then
                     control(this).caption = " " + control(this).caption + " "
                 End If
             End If
+            If passed(action, "text") Then control(this).text = getParam(action, "text")
 
-            temp = getParam(action, "w")
-            If Len(temp) = 0 Then
-                control(this).w = Len(control(this).caption) + 2
-                If control(this).type = controlType("checkbox") Then
-                    control(this).w = control(this).w + 2
+            If passed(action, "w") Then
+                temp = getParam(action, "w")
+                If temp = "auto" Then
+                    GoSub setAutoWidth
+                ElseIf Val(temp) > 0 Then
+                    control(this).w = Val(temp)
                 End If
-            ElseIf Val(temp) > 0 Then
-                control(this).w = Val(temp)
+            Else
+                GoSub setAutoWidth
             End If
 
-            temp = getParam(action, "h")
-            If Len(temp) = 0 Then
+            If passed(action, "h") Then
+                control(this).h = Val(getParam(action, "h"))
+            Else
                 control(this).h = 1
-            ElseIf Val(temp) > 0 Then
-                control(this).h = Val(temp)
             End If
 
             result = getParam(action, "align")
@@ -127,31 +124,23 @@ Function tui& (action As String) Static
                     End If
             End Select
 
-            temp = getParam(action, "x")
-            If Len(temp) Then control(this).x = Val(temp)
-
-            temp = getParam(action, "y")
-            If Len(temp) Then control(this).y = Val(temp)
+            If passed(action, "x") Then control(this).x = Val(getParam(action, "x"))
+            If passed(action, "y") Then control(this).y = Val(getParam(action, "y"))
 
             result = getParam(action, "color")
             If result = "inherit" And control(this).parent > 0 Then
                 control(this).fg = control(control(this).parent).fg
                 control(this).bg = control(control(this).parent).bg
-                control(this).hoverfg = control(control(this).parent).hoverfg
-                control(this).hoverbg = control(control(this).parent).hoverbg
+                control(this).fghover = control(control(this).parent).fghover
+                control(this).bghover = control(control(this).parent).bghover
             End If
 
-            temp = getParam(action, "fg")
-            If Len(temp) Then control(this).fg = paramVal(temp)
+            If passed(action, "fg") Then control(this).fg = Val(getParam(action, "fg"))
+            If passed(action, "bg") Then control(this).bg = Val(getParam(action, "bg"))
+            If passed(action, "fghover") Then control(this).fghover = Val(getParam(action, "fghover"))
+            If passed(action, "bghover") Then control(this).bghover = Val(getParam(action, "bghover"))
 
-            temp = getParam(action, "hoverfg")
-            If Len(temp) Then control(this).hoverfg = paramVal(temp)
-
-            temp = getParam(action, "bg")
-            If Len(temp) Then control(this).bg = paramVal(temp)
-
-            temp = getParam(action, "hoverbg")
-            If Len(temp) Then control(this).hoverbg = paramVal(temp)
+            If passed(action, "value") Then control(this).value = Val(getParam(action, "value"))
 
             tui& = this
         Case "clicked"
@@ -163,6 +152,7 @@ Function tui& (action As String) Static
             fetchedKeyboard = 0
             prevFG = _DefaultColor
             prevBG = _BackgroundColor
+
             For i = 1 To totalControls
                 x = control(i).x + control(control(i).parent).x
                 y = control(i).y + control(control(i).parent).y
@@ -179,8 +169,8 @@ Function tui& (action As String) Static
                     Select Case control(i).type
                         Case controlType("form")
                         Case Else
-                            If control(i).hoverfg > -1 Then Color control(i).hoverfg
-                            If control(i).hoverbg > -1 Then Color , control(i).hoverbg
+                            If control(i).fghover > -1 Then Color control(i).fghover
+                            If control(i).bghover > -1 Then Color , control(i).bghover
                     End Select
                 End If
 
@@ -209,15 +199,16 @@ Function tui& (action As String) Static
                         If control(i).shadow And ((focus = i And _KeyDown(32)) Or (mouseDownOn = i And hover = i)) Then
                             x = x + 1
                         End If
-                        _PrintString (x, y), " " + control(i).caption + " "
+                        _PrintString (x, y), Space$(control(i).w)
+                        _PrintString (x + (control(i).w - Len(control(i).caption)) \ 2, y), control(i).caption
                         If control(i).shadow And (hover <> i Or (hover = i And mouseDownOn <> i)) And (focus <> i Or (focus = i And _KeyDown(32) = 0)) Then
                             If control(i).parent > 0 Then
                                 Color 0, control(control(i).parent).bg
                             Else
                                 Color 0, prevBG
                             End If
-                            _PrintString (x + Len(control(i).caption) + 2, y), Chr$(220)
-                            _PrintString (x + 1, y + 1), String$(Len(control(i).caption) + 2, 223)
+                            _PrintString (x + control(i).w, y), Chr$(220)
+                            _PrintString (x + 1, y + 1), String$(control(i).w, 223)
                         End If
                         If showFocus And focus = i Then Locate y, x + 1, 1
                     Case controlType("checkbox")
@@ -279,10 +270,10 @@ Function tui& (action As String) Static
                         If my = control(mouseDownOn).y Then draggingForm = -1
                     Else
                         draggingForm = 0
+                        focus = hover
                     End If
                     mouseDownX = mx
                     mouseDownY = my
-                    focus = hover
                 End If
             Else
                 If mouseDown Then
@@ -309,7 +300,7 @@ Function tui& (action As String) Static
             temp = getParam(action, "control")
             GoSub getControlID
 
-            For i = 1 To 3
+            For i = 1 To 2
                 temp = getNextParam(action)
             Next
 
@@ -322,9 +313,11 @@ Function tui& (action As String) Static
                 Case "value": tui& = control(this).value
                 Case "fg": tui& = control(this).fg
                 Case "bg": tui& = control(this).bg
-                Case "hoverbg": tui& = control(this).hoverbg
+                Case "fghover": tui& = control(this).fghover
+                Case "bghover": tui& = control(this).bghover
                 Case "name": action = control(this).name
                 Case "caption": action = control(this).caption
+                Case "text": action = control(this).text
             End Select
         Case "set"
             Do
@@ -339,6 +332,10 @@ Function tui& (action As String) Static
                     Case "highintensity"
                         highIntensity = (LCase$(result) = "true")
                         If highIntensity Then _Blink Off Else _Blink On
+                    Case "focus"
+                        temp = getParam(action, "control")
+                        GoSub getControlID
+                        focus = this
                     Case "defaults"
                         temp = getParam(action, "parent")
                         If Len(temp) Then
@@ -346,49 +343,35 @@ Function tui& (action As String) Static
                             defaults.parent = j
                         End If
 
-                        temp = getParam(action, "w")
-                        If Len(temp) Then defaults.w = Val(temp)
+                        If passed(action, "w") Then defaults.w = Val(getParam(action, "w"))
+                        If passed(action, "h") Then defaults.h = Val(getParam(action, "h"))
+                        If passed(action, "x") Then defaults.x = Val(getParam(action, "x"))
+                        If passed(action, "y") Then defaults.y = Val(getParam(action, "y"))
+                        If passed(action, "value") Then defaults.value = Val(getParam(action, "value"))
 
-                        temp = getParam(action, "h")
-                        If Len(temp) Then defaults.h = Val(temp)
+                        If passed(action, "fg") Then defaults.fg = Val(getParam(action, "fg"))
+                        If passed(action, "bg") Then defaults.bg = Val(getParam(action, "bg"))
+                        If passed(action, "fghover") Then defaults.fghover = Val(getParam(action, "fghover"))
+                        If passed(action, "bghover") Then defaults.bghover = Val(getParam(action, "bghover"))
 
-                        temp = getParam(action, "x")
-                        If Len(temp) Then defaults.x = Val(temp)
-
-                        temp = getParam(action, "y")
-                        If Len(temp) Then defaults.y = Val(temp)
-
-                        temp = getParam(action, "value")
-                        If Len(temp) Then defaults.value = Val(temp)
-
-                        temp = getParam(action, "fg")
-                        If Len(temp) Then defaults.fg = Val(temp)
-
-                        temp = getParam(action, "hoverfg")
-                        If Len(temp) Then defaults.hoverfg = Val(temp)
-
-                        temp = getParam(action, "bg")
-                        If Len(temp) Then defaults.bg = Val(temp)
-
-                        temp = getParam(action, "hoverbg")
-                        If Len(temp) Then defaults.hoverbg = Val(temp)
-
-                        temp = getParam(action, "shadow")
-                        If Len(temp) Then defaults.shadow = (LCase$(temp) = "true")
+                        If passed(action, "shadow") Then defaults.shadow = (LCase$(getParam(action, "shadow")) = "true")
                     Case "control"
                         temp = getParam(action, temp)
                         GoSub getControlID
 
-                        j = 0
-                        temp = getParam(action, "caption")
-                        If Len(temp) > 0 Then
-                            control(this).caption = temp
-                            j = -1
+                        captionSet = 0
+                        If passed(action, "caption") Then
+                            control(this).caption = getParam(action, "caption")
+                            captionSet = -1
                         End If
 
-                        temp = getParam(action, "w")
-                        If Val(temp) > 0 Then control(this).w = Val(temp)
-                        If Len(temp) = 0 And j Then
+                        If passed(action, "text") Then
+                            control(this).text = getParam(action, "text")
+                        End If
+
+                        If passed(action, "w") Then
+                            control(this).w = Val(getParam(action, "w"))
+                        ElseIf captionSet Then
                             Select Case control(this).type
                                 Case controlType("button")
                                     control(this).w = Len(control(this).caption) + 2
@@ -397,36 +380,25 @@ Function tui& (action As String) Static
                             End Select
                         End If
 
-                        temp = getParam(action, "h")
-                        If Len(temp) Then control(this).h = Val(temp)
-
-                        temp = getParam(action, "x")
-                        If Len(temp) Then control(this).x = Val(temp)
-
-                        temp = getParam(action, "y")
-                        If Len(temp) Then control(this).y = Val(temp)
+                        If passed(action, "h") Then control(this).h = Val(getParam(action, "h"))
+                        If passed(action, "x") Then control(this).x = Val(getParam(action, "x"))
+                        If passed(action, "y") Then control(this).y = Val(getParam(action, "y"))
 
                         result = getParam(action, "color")
                         If result = "inherit" And control(this).parent > 0 Then
                             control(this).fg = control(control(this).parent).fg
                             control(this).bg = control(control(this).parent).bg
-                            control(this).hoverbg = control(control(this).parent).hoverbg
+                            control(this).bghover = control(control(this).parent).bghover
                         End If
 
-                        temp = getParam(action, "fg")
-                        If Len(temp) Then control(this).fg = Val(temp)
-                        temp = getParam(action, "hoverfg")
-                        If Len(temp) Then control(this).hoverfg = Val(temp)
-                        temp = getParam(action, "bg")
-                        If Len(temp) Then control(this).bg = Val(temp)
-                        temp = getParam(action, "hoverbg")
-                        If Len(temp) Then control(this).hoverbg = Val(temp)
+                        If passed(action, "fg") Then control(this).fg = Val(getParam(action, "fg"))
+                        If passed(action, "bg") Then control(this).bg = Val(getParam(action, "bg"))
+                        If passed(action, "fghover") Then control(this).fghover = Val(getParam(action, "fghover"))
+                        If passed(action, "bghover") Then control(this).bghover = Val(getParam(action, "bghover"))
 
-                        temp = getParam(action, "shadow")
-                        If Len(temp) Then control(this).shadow = (LCase$(temp) = "true")
+                        If passed(action, "value") Then control(this).value = Val(getParam(action, "value"))
 
-                        temp = getParam(action, "value")
-                        If Len(temp) Then control(this).value = Val(temp)
+                        If passed(action, "shadow") Then control(this).shadow = (LCase$(getParam(action, "shadow")) = "true")
                 End Select
             Loop
         Case Else
@@ -458,11 +430,17 @@ Function tui& (action As String) Static
     Next
     Return
 
+    setAutoWidth:
+    control(this).w = Len(control(this).caption) + 2
+    If control(this).type = controlType("checkbox") Then
+        control(this).w = control(this).w + 2
+    End If
+    Return
 End Function
 
 Function controlType& (__a$)
     Dim typeList$
-    typeList$ = "@form@button@checkbox@label@"
+    typeList$ = "@form@button@checkbox@label@textbox@"
 
     controlType& = InStr(typeList$, LCase$("@" + __a$ + "@"))
 End Function
@@ -471,15 +449,30 @@ Function getAction$ (__a$)
     Dim As Long position
     Dim As String result, sep
 
-    sep = ";"
+    sep = " "
     position = InStr(__a$, sep)
     If position = 0 Then
         getAction$ = __a$
+        __a$ = ""
     Else
         result = LCase$(Left$(__a$, position - 1))
         If InStr(result, "=") > 0 Then Exit Function
+        __a$ = Mid$(__a$, position + 1)
         getAction$ = result
     End If
+End Function
+
+Function passed%% (__action$, __parameter$)
+    Dim As String s, p, os, sep
+    Dim As Long position
+
+    sep = ";"
+    os = sep + __action$ + sep
+    s = LCase$(os)
+    p = sep + LCase$(__parameter$) + "="
+
+    position = _InStrRev(s, p)
+    passed%% = position > 0
 End Function
 
 Function getParam$ (__action$, __parameter$)
@@ -491,19 +484,11 @@ Function getParam$ (__action$, __parameter$)
     s = LCase$(os)
     p = sep + LCase$(__parameter$) + "="
 
-    position = _InStrRev(s$, p$)
+    position = _InStrRev(s, p)
     If position = 0 Then Exit Function
 
-    result$ = Mid$(os$, position + Len(p$))
-    getParam$ = _Trim$(Left$(result$, InStr(result$, sep$) - 1))
-End Function
-
-Function paramVal& (param$)
-    If Len(param$) = 0 Then
-        paramVal& = -1
-    Else
-        paramVal& = Val(param$)
-    End If
+    result = Mid$(os, position + Len(p))
+    getParam$ = _Trim$(Left$(result, InStr(result, sep) - 1))
 End Function
 
 Function getNextParam$ (__action$) Static
