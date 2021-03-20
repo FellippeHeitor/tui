@@ -14,7 +14,7 @@ check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x
 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=2;bghover=-1;special=autosize")
 label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=3;bghover=-1;special=autosize")
 button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=5;w=20;fg=31;bg=9")
-button2 = tui("add type=button;name=button2;caption=&Close;align=bottom-right;fg=31;bg=8")
+button2 = tui("add type=button;name=button2;caption=&Close;align=bottom-right;fg=31;bg=8;keybind=27")
 
 result = tui("set defaults;fg=0;bg=7;fghover=7;bghover=0")
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
@@ -69,7 +69,7 @@ Loop
 
 Function tui& (action As String) Static
     Type newControl
-        As Long type, parent, x, y, w, h, value
+        As Long type, parent, x, y, w, h, value, keybind
         As Integer fg, bg, fghover, bghover, hotkeypos
         As String name, special, caption, text, hotkey
         As _Byte shadow
@@ -231,6 +231,7 @@ Function tui& (action As String) Static
             If passed(action, "bghover") Then control(this).bghover = Val(getParam(action, "bghover"))
 
             If passed(action, "value") Then control(this).value = Val(getParam(action, "value"))
+            If passed(action, "keybind") Then control(this).keybind = Val(getParam(action, "keybind"))
 
             If control(this).type = controlType("menubar") Then
                 If hasMenuBar = 0 Then
@@ -348,6 +349,7 @@ Function tui& (action As String) Static
                     Case controlType("textbox")
                         If focus = i And fetchedKeyboard = 0 Then
                             k = _KeyHit 'read keyboard input for textbox control
+                            fetchedKeyboard = -1
                         End If
                 End Select
 
@@ -356,7 +358,6 @@ Function tui& (action As String) Static
                     If control(i).bghover > -1 Then Color , control(i).bghover
                     _PrintString (hotkeyX, hotkeyY), control(i).hotkey
                 End If
-
             Next
 
             If hasMenuBar Then
@@ -407,6 +408,36 @@ Function tui& (action As String) Static
                             control(focus).value = Not control(focus).value
                             clicked = focus
                     End Select
+                Case 65 TO 90, 97 TO 122 'A-Z, a-z
+                    If showHotKey Then
+                        Dim As String hotkeySearch
+                        hotkeySearch = UCase$(Chr$(k))
+                        For i = 1 To totalControls
+                            If UCase$(control(i).hotkey) = hotkeySearch Then
+                                'alt+hotkey emulates click on control
+                                mb = 0
+                                mouseDown = -1
+                                mouseDownOn = i
+                                hover = i
+                                focus = i
+                                Exit For
+                            End If
+                        Next
+                    End If
+                Case Else
+                    If k > 0 Then
+                        For i = 1 To totalControls
+                            If control(i).keybind = k Then
+                                'hitting a control's keybind emulates click
+                                mb = 0
+                                mouseDown = -1
+                                mouseDownOn = i
+                                hover = i
+                                focus = i
+                                Exit For
+                            End If
+                        Next
+                    End If
             End Select
 
             If mb Then
@@ -577,6 +608,7 @@ Function tui& (action As String) Static
                         If passed(action, "bghover") Then control(this).bghover = Val(getParam(action, "bghover"))
 
                         If passed(action, "value") Then control(this).value = Val(getParam(action, "value"))
+                        If passed(action, "keybind") Then control(this).keybind = Val(getParam(action, "keybind"))
 
                         If passed(action, "shadow") Then control(this).shadow = (LCase$(getParam(action, "shadow")) = "true")
                 End Select
