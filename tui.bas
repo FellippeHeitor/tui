@@ -1,31 +1,30 @@
 Option _Explicit
 Dim As String temp
-Dim As Long result
 Dim As Long form, button1, button2, check1, label1, label2
 Dim As Long filemenu, filemenuexit
 Dim As Long editmenu, editmenuproperties
 
-result = tui("set highintensity=true")
-result = tui("set defaults;fg=0;bg=7;fghover=16;bghover=7")
+dotui "set highintensity=true"
+dotui "set defaults;fg=0;bg=7;fghover=16;bghover=7"
 form = tui("add type=form;name=form1;caption=Hello, world!;align=center;w=40;h=10")
 
-result = tui("set defaults;parent=form1")
+dotui "set defaults;parent=form1"
 check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x=2;y=1")
 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=2;bghover=-1;special=autosize")
 label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=3;bghover=-1;special=autosize")
 button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=5;w=20;fg=31;bg=9")
 button2 = tui("add type=button;name=button2;caption=&Close;align=bottom-right;fg=31;bg=8;keybind=27")
 
-result = tui("set defaults;fg=0;bg=7;fghover=7;bghover=0")
+dotui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
-result = tui("set defaults;parent=filemenu")
+dotui "set defaults;parent=filemenu"
 filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 
 editmenu = tui("add type=menubar;parent=0;name=editmenu;caption=&Edit")
-result = tui("set defaults;parent=editmenu")
+dotui "set defaults;parent=editmenu"
 editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties")
 
-result = tui("set focus;control=check1")
+dotui "set focus;control=check1"
 
 Dim As _Byte updateLabel
 updateLabel = -1
@@ -35,37 +34,42 @@ Do
 
     If updateLabel Then
         If tui("get control=check1;value") Then
-            result = tui("set control=label1;caption=The box is checked.;color=inherit")
+            dotui "set control=label1;caption=The box is checked.;color=inherit"
         Else
-            result = tui("set control=label1;caption=The box is unchecked.;color=inherit")
+            dotui "set control=label1;caption=The box is unchecked.;color=inherit"
         End If
     End If
 
     temp$ = "get hover"
-    result = tui(temp$)
-    result = tui("set control=label2;caption=Hover: " + temp$ + ";color=inherit")
+    dotui temp$
+    dotui "set control=label2;caption=Hover: " + temp$ + ";color=inherit"
 
     If tui("clicked") Then
         Select Case tui("control")
             Case button1
                 updateLabel = -1
                 If tui("get control=check1;value") Then
-                    result = tui("set control=check1;value=0")
+                    dotui "set control=check1;value=0"
                 Else
-                    result = tui("set control=check1;value=-1")
+                    dotui "set control=check1;value=-1"
                 End If
             Case check1
                 updateLabel = -1
             Case button2
                 System
             Case label1
-                result = tui("set control=label1;caption=This is not a button!;fg=4;fghover=20")
+                dotui "set control=label1;caption=This is not a button!;fg=4;fghover=20"
                 updateLabel = 0
         End Select
     End If
     _Display
     _Limit 30
 Loop
+
+Sub dotui (action As String)
+    Dim As Long result
+    result = tui&(action)
+End Sub
 
 Function tui& (action As String) Static
     Type newControl
