@@ -379,9 +379,14 @@ Function tui& (action As String) Static
                             If Not draggingForm Then
                                 tuiSetColor control(i).fghover, control(i).bghover
                                 hover = i
+                                If control(menuPanel).active Then GoSub openMenuPanel
                             End If
                         Else
-                            tuiSetColor control(i).fg, control(i).bg
+                            If control(menuPanel).parent <> i Then
+                                tuiSetColor control(i).fg, control(i).bg
+                            ElseIf control(menuPanel).active Then
+                                tuiSetColor control(i).fghover, control(i).bghover
+                            End If
                         End If
                         _PrintString (control(i).x, 1), " " + control(i).caption + " "
                         If control(i).hotkeypos > 0 And showHotKey Then
@@ -398,8 +403,28 @@ Function tui& (action As String) Static
                         If control(i).type = controlType("menuitem") And control(i).parent = control(menuPanel).parent Then
                             tuiSetColor control(menuPanel).fg, control(menuPanel).bg
                             _PrintString (control(i).x, control(i).y), control(i).caption
+                            If control(i).hotkeypos > 0 Then
+                                Color 15
+                                _PrintString (control(i).x + control(i).hotkeypos - 1, control(i).y), control(i).hotkey
+                            End If
                         End If
                     Next
+
+                    If fetchedKeyboard = 0 Then
+                        k = _KeyHit 'read keyboard input for menu control
+                        fetchedKeyboard = -1
+                        Select Case k
+                            Case 18432 'up
+                            Case 20480 'down
+                                If totalMenuPanelItems > 1 Then
+                                    For i = 1 To totalControls
+
+                                    Next
+                                End If
+                            Case 19200 'left
+                            Case 19712 'right
+                        End Select
+                    End If
                 End If
             End If
 
@@ -481,29 +506,7 @@ Function tui& (action As String) Static
                     If control(hover).type = controlType("form") Then
                         If my = control(hover).y Then draggingForm = -1
                     ElseIf control(hover).type = controlType("menubar") Then
-                        'open menu panel
-                        If menuPanel = 0 Then
-                            menuPanel = tui("add type=menupanel")
-                            control(menuPanel).fg = control(hover).fg
-                            control(menuPanel).bg = control(hover).bg
-                            control(menuPanel).fghover = control(hover).fghover
-                            control(menuPanel).bghover = control(hover).bghover
-                        End If
-                        control(menuPanel).active = -1
-                        control(menuPanel).w = 4
-                        control(menuPanel).parent = hover
-                        control(menuPanel).x = control(hover).x
-                        control(menuPanel).y = control(hover).y + 1
-                        totalMenuPanelItems = 0
-                        For i = 1 To totalControls
-                            If control(i).type = controlType("menuitem") And control(i).parent = hover Then
-                                totalMenuPanelItems = totalMenuPanelItems + 1
-                                control(i).x = control(hover).x + 2
-                                control(i).y = control(hover).y + totalMenuPanelItems + 1
-                                If control(menuPanel).w < Len(control(i).caption) + 4 Then control(menuPanel).w = Len(control(i).caption) + 4
-                            End If
-                        Next
-                        control(menuPanel).h = totalMenuPanelItems + 2
+                        GoSub openMenuPanel
                     Else
                         draggingForm = 0
                         focus = hover
@@ -689,6 +692,31 @@ Function tui& (action As String) Static
     If control(this).type = controlType("checkbox") Then
         control(this).w = control(this).w + 2
     End If
+    Return
+
+    openMenuPanel:
+    If menuPanel = 0 Then
+        menuPanel = tui("add type=menupanel")
+        control(menuPanel).fg = control(hover).fg
+        control(menuPanel).bg = control(hover).bg
+        control(menuPanel).fghover = control(hover).fghover
+        control(menuPanel).bghover = control(hover).bghover
+    End If
+    control(menuPanel).active = -1
+    control(menuPanel).w = 4
+    control(menuPanel).parent = hover
+    control(menuPanel).x = control(hover).x
+    control(menuPanel).y = control(hover).y + 1
+    totalMenuPanelItems = 0
+    For j = 1 To totalControls
+        If control(j).type = controlType("menuitem") And control(j).parent = hover Then
+            totalMenuPanelItems = totalMenuPanelItems + 1
+            control(j).x = control(hover).x + 2
+            control(j).y = control(hover).y + totalMenuPanelItems + 1
+            If control(menuPanel).w < Len(control(j).caption) + 4 Then control(menuPanel).w = Len(control(j).caption) + 4
+        End If
+    Next
+    control(menuPanel).h = totalMenuPanelItems + 2
     Return
 End Function
 
