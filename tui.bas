@@ -439,22 +439,6 @@ Function tui& (action As String) Static
                         End If
                     End If
                 Next
-
-                If fetchedKeyboard = 0 Then
-                    k = _KeyHit 'read keyboard input for menu control
-                    fetchedKeyboard = -1
-                    Select Case k
-                        Case 18432 'up
-                        Case 20480 'down
-                            If totalMenuPanelItems > 1 Then
-                                For i = 1 To totalControls
-
-                                Next
-                            End If
-                        Case 19200 'left
-                        Case 19712 'right
-                    End Select
-                End If
             End If
 
             Color prevFG, prevBG
@@ -480,19 +464,30 @@ Function tui& (action As String) Static
                     End Select
                 Case 27
                     If control(menuPanel).active Then control(menuPanel).active = 0: k = 0
+                Case 18432 'up
+                Case 20480 'down
+                    If totalMenuPanelItems > 1 Then
+                        For i = 1 To totalControls
+
+                        Next
+                    End If
+                Case 19200 'left
+                Case 19712 'right
                 Case 65 TO 90, 97 TO 122 'A-Z, a-z
-                    If showHotKey Then
+                    If showHotKey Or control(menuPanel).active Then
                         Dim As String hotkeySearch
                         hotkeySearch = UCase$(Chr$(k))
                         For i = 1 To totalControls
                             If UCase$(control(i).hotkey) = hotkeySearch Then
-                                'alt+hotkey emulates click on control
-                                mb = 0
-                                mouseDown = -1
-                                mouseDownOn = i
-                                hover = i
-                                focus = i
-                                Exit For
+                                If control(menuPanel).active = 0 Or (control(menuPanel).active And control(i).parent = control(menuPanel).parent) Then
+                                    'alt+hotkey emulates click on control
+                                    mb = 0
+                                    mouseDown = -1
+                                    mouseDownOn = i
+                                    hover = i
+                                    focus = i
+                                    Exit For
+                                End If
                             End If
                         Next
                     End If
