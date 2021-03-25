@@ -1,7 +1,7 @@
 Option _Explicit
 Dim As String temp
 Dim As Long form, button1, button2, check1, label1, label2
-Dim As Long filemenu, filemenuexit
+Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuproperties
 
 dotui "set highintensity=true"
@@ -18,13 +18,15 @@ button2 = tui("add type=button;name=button2;caption=&Close;align=bottom-right;fg
 dotui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
 dotui "set defaults;parent=filemenu"
+filemenunew = tui("add type=menuitem;name=filemenuexit;caption=&New  Ctrl+N")
+dotui "add type=menuitem;caption=-"
 filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 
 editmenu = tui("add type=menubar;parent=0;name=editmenu;caption=&Edit")
 dotui "set defaults;parent=editmenu"
-editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo")
+editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo  Ctrl+Z")
 dotui "add type=menuitem;caption=-"
-editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties")
+editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties...")
 
 dotui "set focus;control=check1"
 
@@ -399,6 +401,7 @@ Function tui& (action As String) Static
             End If
 
             If control(menuPanel).active Then
+                Dim As String menuCaption, menuShortcut
                 tuiSetColor control(menuPanel).fg, control(menuPanel).bg
                 boxShadow control(menuPanel).x, control(menuPanel).y, control(menuPanel).w, control(menuPanel).h
                 If mx >= control(menuPanel).x And mx <= control(menuPanel).x + control(menuPanel).w - 1 And my >= control(menuPanel).y And my <= control(menuPanel).y + control(menuPanel).h - 1 Then
@@ -410,6 +413,14 @@ Function tui& (action As String) Static
                             tuiSetColor control(menuPanel).fg, control(menuPanel).bg
                             _PrintString (control(i).x - 2, control(i).y), Chr$(195) + String$(control(menuPanel).w - 2, 196) + Chr$(180)
                         Else
+                            menuShortcut = ""
+                            j = InStr(control(i).caption, Space$(2))
+                            If j Then
+                                menuCaption = Left$(control(i).caption, j - 1)
+                                menuShortcut = Mid$(control(i).caption, j + 2)
+                            Else
+                                menuCaption = control(i).caption
+                            End If
                             If mx >= control(i).x - 1 And mx <= control(menuPanel).x + control(menuPanel).w - 2 And my = control(i).y Then
                                 hover = i
                                 tuiSetColor control(menuPanel).fghover, control(menuPanel).bghover
@@ -417,7 +428,10 @@ Function tui& (action As String) Static
                             Else
                                 tuiSetColor control(menuPanel).fg, control(menuPanel).bg
                             End If
-                            _PrintString (control(i).x, control(i).y), control(i).caption
+                            _PrintString (control(i).x, control(i).y), menuCaption
+                            If Len(menuShortcut) Then
+                                _PrintString (control(menuPanel).x + control(menuPanel).w - Len(menuShortcut) - 2, control(i).y), menuShortcut
+                            End If
                             If control(i).hotkeypos > 0 Then
                                 Color 15
                                 _PrintString (control(i).x + control(i).hotkeypos - 1, control(i).y), control(i).hotkey
