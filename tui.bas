@@ -23,6 +23,7 @@ filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 editmenu = tui("add type=menubar;parent=0;name=editmenu;caption=&Edit")
 dotui "set defaults;parent=editmenu"
 editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo")
+dotui "add type=menuitem;caption=-"
 editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties")
 
 dotui "set focus;control=check1"
@@ -56,7 +57,7 @@ Do
                 End If
             Case check1
                 updateLabel = -1
-            Case button2
+            Case button2, filemenuexit
                 System
             Case label1
                 dotui "set control=label1;caption=This is not a button!;fg=4;fghover=20"
@@ -395,36 +396,50 @@ Function tui& (action As String) Static
                         End If
                     End If
                 Next
+            End If
 
-                If control(menuPanel).active Then
-                    tuiSetColor control(menuPanel).fg, control(menuPanel).bg
-                    boxShadow control(menuPanel).x, control(menuPanel).y, control(menuPanel).w, control(menuPanel).h
-                    For i = 1 To totalControls
-                        If control(i).type = controlType("menuitem") And control(i).parent = control(menuPanel).parent Then
+            If control(menuPanel).active Then
+                tuiSetColor control(menuPanel).fg, control(menuPanel).bg
+                boxShadow control(menuPanel).x, control(menuPanel).y, control(menuPanel).w, control(menuPanel).h
+                If mx >= control(menuPanel).x And mx <= control(menuPanel).x + control(menuPanel).w - 1 And my >= control(menuPanel).y And my <= control(menuPanel).y + control(menuPanel).h - 1 Then
+                    hover = menuPanel
+                End If
+                For i = 1 To totalControls
+                    If control(i).type = controlType("menuitem") And control(i).parent = control(menuPanel).parent Then
+                        If control(i).caption = "-" Then
                             tuiSetColor control(menuPanel).fg, control(menuPanel).bg
+                            _PrintString (control(i).x - 2, control(i).y), Chr$(195) + String$(control(menuPanel).w - 2, 196) + Chr$(180)
+                        Else
+                            If mx >= control(i).x - 1 And mx <= control(menuPanel).x + control(menuPanel).w - 2 And my = control(i).y Then
+                                hover = i
+                                tuiSetColor control(menuPanel).fghover, control(menuPanel).bghover
+                                _PrintString (control(i).x - 1, control(i).y), Space$(control(menuPanel).w - 2)
+                            Else
+                                tuiSetColor control(menuPanel).fg, control(menuPanel).bg
+                            End If
                             _PrintString (control(i).x, control(i).y), control(i).caption
                             If control(i).hotkeypos > 0 Then
                                 Color 15
                                 _PrintString (control(i).x + control(i).hotkeypos - 1, control(i).y), control(i).hotkey
                             End If
                         End If
-                    Next
-
-                    If fetchedKeyboard = 0 Then
-                        k = _KeyHit 'read keyboard input for menu control
-                        fetchedKeyboard = -1
-                        Select Case k
-                            Case 18432 'up
-                            Case 20480 'down
-                                If totalMenuPanelItems > 1 Then
-                                    For i = 1 To totalControls
-
-                                    Next
-                                End If
-                            Case 19200 'left
-                            Case 19712 'right
-                        End Select
                     End If
+                Next
+
+                If fetchedKeyboard = 0 Then
+                    k = _KeyHit 'read keyboard input for menu control
+                    fetchedKeyboard = -1
+                    Select Case k
+                        Case 18432 'up
+                        Case 20480 'down
+                            If totalMenuPanelItems > 1 Then
+                                For i = 1 To totalControls
+
+                                Next
+                            End If
+                        Case 19200 'left
+                        Case 19712 'right
+                    End Select
                 End If
             End If
 
@@ -506,7 +521,11 @@ Function tui& (action As String) Static
                     If control(hover).type = controlType("form") Then
                         If my = control(hover).y Then draggingForm = -1
                     ElseIf control(hover).type = controlType("menubar") Then
-                        GoSub openMenuPanel
+                        If control(menuPanel).active And hover = control(menuPanel).parent Then
+                            control(menuPanel).active = 0
+                        Else
+                            GoSub openMenuPanel
+                        End If
                     Else
                         draggingForm = 0
                         focus = hover
@@ -525,6 +544,7 @@ Function tui& (action As String) Static
                     ElseIf mouseDownOn = 0 Then
                         focus = 0
                     End If
+                    If focus = 0 And control(menuPanel).active Then control(menuPanel).active = 0
                 End If
                 mouseDown = 0
                 mouseDownOn = 0
@@ -696,7 +716,7 @@ Function tui& (action As String) Static
 
     openMenuPanel:
     If menuPanel = 0 Then
-        menuPanel = tui("add type=menupanel")
+        menuPanel = tui("add type=menupanel;name=tuimenupanel")
         control(menuPanel).fg = control(hover).fg
         control(menuPanel).bg = control(hover).bg
         control(menuPanel).fghover = control(hover).fghover
