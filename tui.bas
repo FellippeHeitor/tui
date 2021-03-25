@@ -385,7 +385,7 @@ Function tui& (action As String) Static
                                 If control(menuPanel).active Then GoSub openMenuPanel
                             End If
                         Else
-                            If control(menuPanel).parent <> i Then
+                            If control(menuPanel).parent <> i Or control(menuPanel).active = 0 Then
                                 tuiSetColor control(i).fg, control(i).bg
                             ElseIf control(menuPanel).active Then
                                 tuiSetColor control(i).fghover, control(i).bghover
