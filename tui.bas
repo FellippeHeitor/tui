@@ -29,6 +29,7 @@ editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo  Ctrl+Z")
 dotui "add type=menuitem;caption=-"
 editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties...")
 
+'dotui "set modal;control=form1"
 dotui "set focus;control=check1"
 
 Dim As _Byte updateLabel
@@ -89,7 +90,7 @@ Function tui& (action As String) Static
     End Type
 
     Dim As String result, temp
-    Dim As Long i, j, totalControls, this, k
+    Dim As Long i, j, totalControls, this, k, modalForm
     Dim As Long menuPanel, totalMenuPanelItems
     Dim As Long x, y, mx, my, mb, hover, mouseDownOn, clicked, focus
     Dim As Long mouseDownX, mouseDownY, hotkeyX, hotkeyY
@@ -274,6 +275,13 @@ Function tui& (action As String) Static
 
             For i = 1 To totalControls
                 If control(i).active = 0 Then _Continue
+
+                If modalForm > 0 Then
+                    'modal forms and their controls are drawn exclusively
+                    If control(i).type = controlType("form") And i <> modalForm Then _Continue
+                    If control(i).type <> controlType("form") And control(i).parent <> modalForm Then _Continue
+                End If
+
                 Select Case control(i).type
                     Case controlType("menubar"), controlType("menuitem")
                         'deal with menus last
@@ -307,6 +315,7 @@ Function tui& (action As String) Static
                         End Select
                     End If
                 End If
+
                 Select Case control(i).type
                     Case controlType("form")
                         If control(i).shadow Then
@@ -383,7 +392,7 @@ Function tui& (action As String) Static
                             _PrintString (1, 1), Space$(_Width)
                             firstMenuFound = -1
                         End If
-                        If my = 1 And mx >= control(i).x And mx < control(i).x + Len(control(i).caption) + 2 Then
+                        If modalForm = 0 And my = 1 And mx >= control(i).x And mx < control(i).x + Len(control(i).caption) + 2 Then
                             If Not draggingForm Then
                                 tuiSetColor control(i).fghover, control(i).bghover
                                 hover = i
@@ -397,7 +406,7 @@ Function tui& (action As String) Static
                             End If
                         End If
                         _PrintString (control(i).x, 1), " " + control(i).caption + " "
-                        If control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0 Then
+                        If modalForm = 0 And control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0 Then
                             Color 15
                             _PrintString (control(i).x + control(i).hotkeypos, 1), control(i).hotkey
                         End If
@@ -631,6 +640,14 @@ Function tui& (action As String) Static
                         temp = getParam(action, "control")
                         GoSub getControlID
                         focus = this
+                    Case "modal"
+                        temp = getParam(action, "control")
+                        GoSub getControlID
+                        If this = 0 Then
+                            modalForm = 0
+                        ElseIf control(this).type = controlType("form") Then
+                            modalForm = this
+                        End If
                     Case "defaults"
                         temp = getParam(action, "parent")
                         If Len(temp) Then
@@ -742,6 +759,7 @@ Function tui& (action As String) Static
     Return
 
     openMenuPanel:
+    If modalForm Then Return
     If menuPanel = 0 Then
         menuPanel = tui("add type=menupanel;name=tuimenupanel")
         control(menuPanel).fg = control(hover).fg
