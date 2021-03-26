@@ -2,7 +2,7 @@ Option _Explicit
 Dim As String temp
 Dim As Long form, button1, button2, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
-Dim As Long editmenu, editmenuundo, editmenuproperties
+Dim As Long editmenu, editmenuundo, editmenuredo, editmenuproperties
 
 dotui "set highintensity=true"
 dotui "set defaults;fg=0;bg=7;fghover=16;bghover=7"
@@ -26,6 +26,7 @@ filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 editmenu = tui("add type=menubar;parent=0;name=editmenu;caption=&Edit")
 dotui "set defaults;parent=editmenu"
 editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo  Ctrl+Z")
+editmenuredo = tui("add type=menuitem;name=editmenuredo;caption=&Redo  Ctrl+Y")
 dotui "add type=menuitem;caption=-"
 editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties...")
 
@@ -70,6 +71,12 @@ Do
             Case label1
                 dotui "set control=label1;caption=This is not a button!;fg=4;fghover=20"
                 updateLabel = 0
+            Case Else
+                Cls
+                Print "clicked"
+                Print tui("control")
+                _AutoDisplay
+                Sleep
         End Select
     End If
     _Display
@@ -86,18 +93,18 @@ Function tui& (action As String) Static
         As Long type, parent, x, y, w, h, value, keybind
         As Integer fg, bg, fghover, bghover, hotkeypos
         As String name, special, caption, text, hotkey
-        As _Byte active, shadow
+        As _Byte active, disabled, shadow
     End Type
 
     Dim As String result, temp
     Dim As Long i, j, totalControls, this, k, modalForm
     Dim As Long menuPanel, totalMenuPanelItems
-    Dim As Long x, y, mx, my, mb, hover, mouseDownOn, clicked, focus
+    Dim As Long x, y, mx, my, mb, hover, mouseDownOn, clicked, lastClickedControl, focus, prevFocus
     Dim As Long mouseDownX, mouseDownY, hotkeyX, hotkeyY
     Dim As Integer prevFG, prevBG
     Dim As _Byte setup, mouseDown, fetchMouse, showFocus, fetchedKeyboard
     Dim As _Byte draggingForm, highIntensity, captionSet, hasMenuBar
-    Dim As _Byte showHotKey
+    Dim As _Byte showHotKey, prevShowHotKey, willActivateMenu, mouseMovedRecently
 
     If setup = 0 Then
         ReDim control(100) As newControl
@@ -267,11 +274,31 @@ Function tui& (action As String) Static
             mx = _MouseX
             my = _MouseY
             mb = _MouseButton(1)
+            clicked = 0
             hover = 0
             fetchedKeyboard = 0
             prevFG = _DefaultColor
             prevBG = _BackgroundColor
             showHotKey = _KeyDown(100308) Or _KeyDown(100307)
+
+            If showHotKey Then
+                If prevShowHotKey = 0 Then
+                    prevShowHotKey = -1
+                    willActivateMenu = -1
+                End If
+            Else
+                prevShowHotKey = 0
+                If willActivateMenu And control(focus).type <> controlType("menupanel") And control(focus).type <> controlType("menuitem") Then
+                    willActivateMenu = 0
+                    For i = 1 To totalControls
+                        If control(i).type = controlType("menubar") Then
+                            prevFocus = focus
+                            focus = i
+                            Exit For
+                        End If
+                    Next
+                End If
+            End If
 
             For i = 1 To totalControls
                 If control(i).active = 0 Then _Continue
@@ -392,12 +419,14 @@ Function tui& (action As String) Static
                             _PrintString (1, 1), Space$(_Width)
                             firstMenuFound = -1
                         End If
-                        If modalForm = 0 And my = 1 And mx >= control(i).x And mx < control(i).x + Len(control(i).caption) + 2 Then
+                        If focus = i Or (modalForm = 0 And my = 1 And mx >= control(i).x And mx < control(i).x + Len(control(i).caption) + 2) Then
                             If Not draggingForm Then
                                 tuiSetColor control(i).fghover, control(i).bghover
                                 hover = i
+                                If control(focus).type = controlType("menubar") Then focus = i
                                 If control(menuPanel).active Then GoSub openMenuPanel
                             End If
+                            If focus = i Then Locate , , 0
                         Else
                             If control(menuPanel).parent <> i Or control(menuPanel).active = 0 Then
                                 tuiSetColor control(i).fg, control(i).bg
@@ -406,7 +435,7 @@ Function tui& (action As String) Static
                             End If
                         End If
                         _PrintString (control(i).x, 1), " " + control(i).caption + " "
-                        If modalForm = 0 And control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0 Then
+                        If control(focus).type = controlType("menubar") Or (modalForm = 0 And control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0) Then
                             Color 15
                             _PrintString (control(i).x + control(i).hotkeypos, 1), control(i).hotkey
                         End If
@@ -421,8 +450,10 @@ Function tui& (action As String) Static
                 If mx >= control(menuPanel).x And mx <= control(menuPanel).x + control(menuPanel).w - 1 And my >= control(menuPanel).y And my <= control(menuPanel).y + control(menuPanel).h - 1 Then
                     hover = menuPanel
                 End If
+                mouseMovedRecently = tuiMouseMoved
                 For i = 1 To totalControls
                     If control(i).type = controlType("menuitem") And control(i).parent = control(menuPanel).parent Then
+                        If focus = i Then Locate , , 0
                         If control(i).caption = "-" Then
                             tuiSetColor control(menuPanel).fg, control(menuPanel).bg
                             _PrintString (control(i).x - 2, control(i).y), Chr$(195) + String$(control(menuPanel).w - 2, 196) + Chr$(180)
@@ -435,8 +466,13 @@ Function tui& (action As String) Static
                             Else
                                 menuCaption = control(i).caption
                             End If
-                            If mx >= control(i).x - 1 And mx <= control(menuPanel).x + control(menuPanel).w - 2 And my = control(i).y Then
+
+                            If (mouseMovedRecently And mx >= control(i).x - 1 And mx <= control(menuPanel).x + control(menuPanel).w - 2 And my = control(i).y) Then
                                 hover = i
+                                focus = i
+                            End If
+
+                            If focus = i Then
                                 tuiSetColor control(menuPanel).fghover, control(menuPanel).bghover
                                 _PrintString (control(i).x - 1, control(i).y), Space$(control(menuPanel).w - 2)
                             Else
@@ -465,8 +501,10 @@ Function tui& (action As String) Static
                     Loop While control(focus).type = controlType("form") Or control(focus).type = controlType("label")
                 Case -13
                     Select Case control(focus).type
-                        Case controlType("button")
-                            clicked = focus
+                        Case controlType("button"), controlType("menuitem")
+                            If control(focus).disabled = 0 Then clicked = focus
+                        Case controlType("menubar")
+                            GoSub openMenuPanel
                     End Select
                 Case -32
                     Select Case control(focus).type
@@ -478,36 +516,86 @@ Function tui& (action As String) Static
                     End Select
                 Case 27
                     If control(menuPanel).active Then control(menuPanel).active = 0: k = 0
+                    focus = prevFocus
                 Case 18432 'up
+                    Select Case control(focus).type
+                        Case controlType("menubar")
+                            GoSub openMenuPanel
+                        Case controlType("menuitem")
+                            this = focus
+                            Do
+                                this = this - 1
+                                If this < 1 Then this = UBound(Control)
+                                If this = focus Then Exit Do
+                                If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" Then
+                                    focus = this
+                                    Exit Do
+                                End If
+                            Loop
+                    End Select
                 Case 20480 'down
-                    If totalMenuPanelItems > 1 Then
-                        For i = 1 To totalControls
-
-                        Next
-                    End If
+                    Select Case control(focus).type
+                        Case controlType("menubar")
+                            GoSub openMenuPanel
+                        Case controlType("menuitem")
+                            this = focus
+                            Do
+                                this = this + 1
+                                If this > UBound(Control) Then this = 1
+                                If this = focus Then Exit Do
+                                If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" Then
+                                    focus = this
+                                    Exit Do
+                                End If
+                            Loop
+                    End Select
                 Case 19200 'left
+                    Select EveryCase control(focus).type
+                        Case controlType("menubar"), controlType("menuitem")
+                            If control(focus).type = controlType("menuitem") Then focus = control(focus).parent
+                            this = focus
+                            Do
+                                this = this - 1
+                                If this < 1 Then this = UBound(Control)
+                                If this = focus Then Exit Do
+                                If control(this).type = controlType("menubar") Then focus = this: Exit Do
+                            Loop
+                    End Select
                 Case 19712 'right
+                    Select Case control(focus).type
+                        Case controlType("menubar"), controlType("menuitem")
+                            If control(focus).type = controlType("menuitem") Then focus = control(focus).parent
+                            this = focus
+                            Do
+                                this = this + 1
+                                If this > UBound(Control) Then this = 1
+                                If this = focus Then Exit Do
+                                If control(this).type = controlType("menubar") Then focus = this: Exit Do
+                            Loop
+                    End Select
                 Case 65 TO 90, 97 TO 122 'A-Z, a-z
-                    If showHotKey Or control(menuPanel).active Then
+                    If showHotKey Or control(menuPanel).active Or control(focus).type = controlType("menubar") Then
                         Dim As String hotkeySearch
                         hotkeySearch = UCase$(Chr$(k))
                         For i = 1 To totalControls
                             If UCase$(control(i).hotkey) = hotkeySearch Then
-                                If control(menuPanel).active = 0 Or (control(menuPanel).active And control(i).parent = control(menuPanel).parent) Then
+                                If control(menuPanel).active = 0 Or (control(menuPanel).active And control(i).parent = control(menuPanel).parent) Or (control(menuPanel).active And control(i).type = controlType("menubar")) Then
                                     'alt+hotkey emulates click on control
-                                    If control(menuPanel).active = 0 And control(i).type = controlType("menubar") Then
+                                    If control(i).type = controlType("menubar") Then
                                         mb = 0
                                         mouseDown = -1
                                         mouseDownOn = i
                                         hover = i
+                                        prevFocus = focus
                                         GoSub openMenuPanel
-                                    ElseIf control(i).type <> controlType("menubar") Then
+                                    Else
                                         mb = 0
                                         mouseDown = -1
                                         mouseDownOn = i
                                         hover = i
                                         focus = i
                                     End If
+                                    willActivateMenu = 0
                                     Exit For
                                 End If
                             End If
@@ -557,6 +645,8 @@ Function tui& (action As String) Static
                         Else
                             GoSub openMenuPanel
                         End If
+                    ElseIf control(hover).type = controlType("menupanel") And control(focus).type = controlType("menuitem") Then
+                        mouseDownOn = focus
                     Else
                         draggingForm = 0
                         focus = hover
@@ -566,7 +656,7 @@ Function tui& (action As String) Static
                 End If
             Else
                 If mouseDown Then
-                    If mouseDownOn > 0 And mouseDownOn = hover Then
+                    If mouseDownOn > 0 And (mouseDownOn = hover Or mouseDownOn = focus) Then
                         clicked = mouseDownOn
                         focus = clicked
                         If control(clicked).type = controlType("checkbox") Then
@@ -582,10 +672,12 @@ Function tui& (action As String) Static
                 draggingForm = 0
             End If
 
-            tui& = clicked > 0
+            If clicked Then
+                lastClickedControl = clicked
+                tui& = -1
+            End If
         Case "control"
-            tui& = clicked
-            clicked = 0
+            tui& = lastClickedControl
         Case "get"
             temp = getParam(action, "control")
 
@@ -773,8 +865,10 @@ Function tui& (action As String) Static
     control(menuPanel).x = control(hover).x
     control(menuPanel).y = control(hover).y + 1
     totalMenuPanelItems = 0
+    focus = 0
     For j = 1 To totalControls
         If control(j).type = controlType("menuitem") And control(j).parent = hover Then
+            If focus = 0 Then focus = j
             totalMenuPanelItems = totalMenuPanelItems + 1
             control(j).x = control(hover).x + 2
             control(j).y = control(hover).y + totalMenuPanelItems + 1
@@ -904,4 +998,11 @@ Sub boxShadow (x As Long, y As Long, w As Long, h As Long)
     End If
 End Sub
 
-'$inc lude:'source/utilities/strings.bas'
+Function tuiMouseMoved%% Static
+    Dim As Long oldMX, oldMY
+    If _MouseX <> oldMX Or _MouseY <> oldMY Then
+        oldMX = _MouseX
+        oldMY = _MouseY
+        tuiMouseMoved%% = -1
+    End If
+End Function
