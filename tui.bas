@@ -397,7 +397,7 @@ Function tui& (action As String) Static
                             End If
                         End If
                         _PrintString (control(i).x, 1), " " + control(i).caption + " "
-                        If control(i).hotkeypos > 0 And showHotKey Then
+                        If control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0 Then
                             Color 15
                             _PrintString (control(i).x + control(i).hotkeypos, 1), control(i).hotkey
                         End If
@@ -486,11 +486,19 @@ Function tui& (action As String) Static
                             If UCase$(control(i).hotkey) = hotkeySearch Then
                                 If control(menuPanel).active = 0 Or (control(menuPanel).active And control(i).parent = control(menuPanel).parent) Then
                                     'alt+hotkey emulates click on control
-                                    mb = 0
-                                    mouseDown = -1
-                                    mouseDownOn = i
-                                    hover = i
-                                    focus = i
+                                    If control(menuPanel).active = 0 And control(i).type = controlType("menubar") Then
+                                        mb = 0
+                                        mouseDown = -1
+                                        mouseDownOn = i
+                                        hover = i
+                                        GoSub openMenuPanel
+                                    ElseIf control(i).type <> controlType("menubar") Then
+                                        mb = 0
+                                        mouseDown = -1
+                                        mouseDownOn = i
+                                        hover = i
+                                        focus = i
+                                    End If
                                     Exit For
                                 End If
                             End If
