@@ -1,24 +1,25 @@
 Option _Explicit
 Dim As String temp
-Dim As Long form, button1, button2, check1, label1, label2
+Dim As Long form, button1, button2, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuproperties
 
 dotui "set highintensity=true"
 dotui "set defaults;fg=0;bg=7;fghover=16;bghover=7"
-form = tui("add type=form;name=form1;caption=Hello, world!;align=center;w=40;h=10")
+form = tui("add type=form;name=form1;caption=Hello, world!;align=center;w=40;h=11")
 
 dotui "set defaults;parent=form1"
 check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x=2;y=1")
 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=2;bghover=-1;special=autosize")
 label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=3;bghover=-1;special=autosize")
-button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=5;w=20;fg=31;bg=9")
+label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=4;bghover=-1;special=autosize")
+button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=6;w=20;fg=31;bg=9")
 button2 = tui("add type=button;name=button2;caption=&Close;align=bottom-right;fg=31;bg=8;keybind=27")
 
 dotui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
 dotui "set defaults;parent=filemenu"
-filemenunew = tui("add type=menuitem;name=filemenuexit;caption=&New  Ctrl+N")
+filemenunew = tui("add type=menuitem;name=filemenunew;caption=&New  Ctrl+N")
 dotui "add type=menuitem;caption=-"
 filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 
@@ -47,6 +48,10 @@ Do
     temp$ = "get hover"
     dotui temp$
     dotui "set control=label2;caption=Hover: " + temp$ + ";color=inherit"
+
+    temp$ = "get focus"
+    dotui temp$
+    dotui "set control=label3;caption=Focus: " + temp$ + ";color=inherit"
 
     If tui("clicked") Then
         Select Case tui("control")
@@ -568,11 +573,16 @@ Function tui& (action As String) Static
             temp = getParam(action, "control")
 
             If Len(temp) = 0 Then
-                If getNextParam(action) = "hover" Then
-                    tui = hover
-                    action = control(hover).name
-                    Exit Function
-                End If
+                Select Case getNextParam(action)
+                    Case "hover"
+                        tui = hover
+                        action = control(hover).name
+                        Exit Function
+                    Case "focus"
+                        tui = focus
+                        action = control(focus).name
+                        Exit Function
+                End Select
             End If
 
             GoSub getControlID
