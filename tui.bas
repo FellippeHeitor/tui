@@ -1,6 +1,6 @@
 Option _Explicit
 Dim As String temp
-Dim As Long form, button1, button2, check1, label1, label2, label3
+Dim As Long form, closebutton, button1, button2, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuredo, editmenuproperties
 Dim As Long statusbar
@@ -12,6 +12,7 @@ statusbar = tui("add type=label;name=statusbar;caption= Ready.;x=1;y=25;w=80;h=1
 form = tui("add type=form;name=form1;caption=Hello, world!;align=center;w=40;h=11")
 
 dotui "set defaults;parent=form1"
+closebutton = tui("add type=button;name=closebutton;caption=[X];y=0;x=34;shadow=false")
 check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x=2;y=1")
 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=2;bghover=-1;special=autosize")
 label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=3;bghover=-1;special=autosize")
@@ -71,7 +72,7 @@ Do
             Case check1
                 updateLabel = -1
                 dotui "set control=statusbar;caption= Ready."
-            Case button2, filemenuexit
+            Case button2, filemenuexit, closebutton
                 System
             Case label1
                 dotui "set control=statusbar;caption= Ready."
@@ -297,15 +298,22 @@ Function tui& (action As String) Static
                 End If
             Else
                 prevShowHotKey = 0
-                If willActivateMenu And control(focus).type <> controlType("menupanel") And control(focus).type <> controlType("menuitem") Then
+                If willActivateMenu Then
                     willActivateMenu = 0
-                    For i = 1 To totalControls
-                        If control(i).type = controlType("menubar") Then
-                            prevFocus = focus
-                            focus = i
-                            Exit For
-                        End If
-                    Next
+                    If control(focus).type = controlType("menubar") Then
+                        focus = prevFocus
+                    ElseIf control(focus).type <> controlType("menupanel") And control(focus).type <> controlType("menuitem") Then
+                        For i = 1 To totalControls
+                            If control(i).type = controlType("menubar") Then
+                                prevFocus = focus
+                                focus = i
+                                Exit For
+                            End If
+                        Next
+                    ElseIf control(focus).type = controlType("menuitem") Then
+                        control(menuPanel).active = 0
+                        focus = control(menuPanel).parent
+                    End If
                 End If
             End If
 
