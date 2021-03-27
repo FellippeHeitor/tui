@@ -109,7 +109,7 @@ Function tui& (action As String) Static
     Dim As Integer prevFG, prevBG
     Dim As _Byte setup, mouseDown, fetchMouse, showFocus, fetchedKeyboard
     Dim As _Byte draggingForm, highIntensity, captionSet, hasMenuBar
-    Dim As _Byte showHotKey, prevShowHotKey, willActivateMenu, mouseMovedRecently
+    Dim As _Byte showHotKey, prevShowHotKey, willActivateMenu
 
     If setup = 0 Then
         ReDim control(100) As newControl
@@ -468,7 +468,6 @@ Function tui& (action As String) Static
                 If mx >= control(menuPanel).x And mx <= control(menuPanel).x + control(menuPanel).w - 1 And my >= control(menuPanel).y And my <= control(menuPanel).y + control(menuPanel).h - 1 Then
                     hover = menuPanel
                 End If
-                mouseMovedRecently = tuiMouseMoved
                 For i = 1 To totalControls
                     If control(i).type = controlType("menuitem") And control(i).parent = control(menuPanel).parent Then
                         If focus = i Then Locate , , 0
@@ -1021,12 +1020,3 @@ Sub boxShadow (x As Long, y As Long, w As Long, h As Long)
         Next
     End If
 End Sub
-
-Function tuiMouseMoved%% Static
-    Dim As Long oldMX, oldMY
-    If _MouseX <> oldMX Or _MouseY <> oldMY Then
-        oldMX = _MouseX
-        oldMY = _MouseY
-        tuiMouseMoved%% = -1
-    End If
-End Function
