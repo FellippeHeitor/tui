@@ -3,21 +3,22 @@ Dim As String temp
 Dim As Long form, closebutton, button1, button2, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuredo, editmenuproperties
+Dim As Long viewmenu, viewmenusubs, viewmenulinenumbers, viewmenuwarnings
 Dim As Long statusbar
 
 dotui "set highintensity=true"
-dotui "set defaults;fg=0;bg=7;fghotkey=15"
-
 statusbar = tui("add type=label;name=statusbar;caption= Ready.;x=1;y=25;w=80;h=1;fg=0;bg=3")
-form = tui("add type=form;name=form1;caption=Hello, world!;align=center;w=40;h=9")
+
+dotui "set defaults;fg=0;bg=7;fghotkey=15"
+form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=40;h=10")
 
 dotui "set defaults;parent=form1"
-closebutton = tui("add type=button;name=closebutton;caption=[X];y=0;x=34;shadow=false")
-check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x=2;y=1")
-label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=2;bghover=-1;special=autosize")
-label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=3;bghover=-1;special=autosize")
-label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=4;bghover=-1;special=autosize")
-button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=6;w=20;fg=31;bg=9;fghover=16;bghover=7")
+closebutton = tui("add type=button;name=closebutton;caption=[X];fg=20;fghover=28;y=0;align=top-right;shadow=false;canreceivefocus=false")
+check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x=2;y=2")
+label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=3;bghover=-1;special=autosize")
+label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=4;bghover=-1;special=autosize")
+label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=5;bghover=-1;special=autosize")
+button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=7;w=20;fg=31;bg=9;fghover=16;bghover=7")
 
 dotui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
@@ -29,9 +30,16 @@ filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 editmenu = tui("add type=menubar;parent=0;name=editmenu;caption=&Edit")
 dotui "set defaults;parent=editmenu"
 editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo  Ctrl+Z")
-editmenuredo = tui("add type=menuitem;name=editmenuredo;caption=&Redo  Ctrl+Y")
+editmenuredo = tui("add type=menuitem;name=editmenuredo;caption=&Redo  Ctrl+Y;disabled=true")
 dotui "add type=menuitem;caption=-"
 editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties...")
+
+viewmenu = tui("add type=menubar;parent=0;name=viewmenu;caption=&View")
+dotui "set defaults;parent=viewmenu"
+viewmenusubs = tui("add type=menuitem;name=viewmenusubs;caption=&Subs...  F2")
+viewmenulinenumbers = tui("add type=menuitem;name=viewmenulinenumbers;caption=&Line Numbers...")
+dotui "add type=menuitem;caption=-"
+viewmenuwarnings = tui("add type=menuitem;name=viewmenuwarnings;caption=Compiler &Warnings...")
 
 'dotui "set modal;control=form1"
 dotui "set focus;control=check1"
@@ -59,22 +67,19 @@ Do
     dotui "set control=label3;caption=Focus: " + temp$ + ";color=inherit"
 
     If tui("clicked") Then
+        dotui "set control=statusbar;caption= Ready."
         Select Case tui("control")
             Case button1
-                updateLabel = -1
-                If tui("get control=check1;value") Then
-                    dotui "set control=check1;value=0"
+                If tui("get control=editmenu;disabled") Then
+                    dotui "set control=editmenu;disabled=false"
                 Else
-                    dotui "set control=check1;value=-1"
+                    dotui "set control=editmenu;disabled=true"
                 End If
-                dotui "set control=statusbar;caption= Ready."
             Case check1
                 updateLabel = -1
-                dotui "set control=statusbar;caption= Ready."
             Case button2, filemenuexit, closebutton
                 System
             Case label1
-                dotui "set control=statusbar;caption= Ready."
                 dotui "set control=label1;caption=This is not a button!;fg=4;fghover=20"
                 updateLabel = 0
             Case Else
@@ -97,7 +102,7 @@ Function tui& (action As String) Static
         As Long type, parent, x, y, w, h, value, keybind
         As Integer fg, bg, fghover, bghover, fghotkey, hotkeypos
         As String name, special, caption, text, hotkey
-        As _Byte canReceiveFocus, active, disabled, shadow
+        As _Byte canReceiveFocus, active, disabled, hidden, shadow
     End Type
 
     Dim As String result, temp
@@ -150,6 +155,9 @@ Function tui& (action As String) Static
                 control(i).parent = j
             End If
             If passed(action, "shadow") Then control(this).shadow = (LCase$(getParam(action, "shadow")) = "true")
+            If passed(action, "canreceivefocus") Then control(this).canReceiveFocus = (LCase$(getParam(action, "canreceivefocus")) = "true")
+            If passed(action, "hidden") Then control(this).hidden = (LCase$(getParam(action, "hidden")) = "true")
+            If passed(action, "disabled") Then control(this).disabled = (LCase$(getParam(action, "disabled")) = "true")
             If passed(action, "caption") Then
                 temp = getParam(action, "caption")
                 control(this).caption = temp
@@ -377,12 +385,8 @@ Function tui& (action As String) Static
                                 box x, y, control(i).w, control(i).h
                             End If
                             If Len(control(i).caption) Then
-                                If (hover = i And my = control(i).y) Or draggingForm Then
-                                    Color control(i).fghotkey, 0
-                                Else
-                                    tuiSetColor control(i).fg, control(i).bg
-                                End If
-
+                                tuiSetColor control(i).fghover, control(i).bghover
+                                _PrintString (control(i).x, control(i).y), Space$(control(i).w)
                                 _PrintString (x + (control(i).w - (Len(control(i).caption)) + 2) \ 2, y), " " + control(i).caption + " "
                             End If
                             If focus = i Then Locate , , 0
@@ -394,7 +398,7 @@ Function tui& (action As String) Static
                                 x = x + 1
                             End If
                             _PrintString (x, y), Space$(control(i).w)
-                            temp = Left$(control(i).caption, control(i).w - 2)
+                            temp = Left$(control(i).caption, control(i).w)
                             _PrintString (x + (control(i).w - Len(temp)) \ 2, y), temp
                             hotkeyX = (x + (control(i).w - Len(temp)) \ 2) + control(i).hotkeypos - 1
                             hotkeyY = y
@@ -441,32 +445,43 @@ Function tui& (action As String) Static
                     firstMenuFound = 0
                     For i = 1 To totalControls
                         If control(i).type = controlType("menubar") Then
+                            If control(i).hidden Or control(i).active = 0 Then _Continue
                             If firstMenuFound = 0 Then
+                                x = control(i).x
                                 tuiSetColor control(i).fg, control(i).bg
                                 _PrintString (1, 1), Space$(_Width)
                                 firstMenuFound = -1
+                            Else
+                                x = x + control(i).w + 2
+                                control(i).x = x
                             End If
                             If (modalForm = 0 And my = 1 And mx >= control(i).x And mx < control(i).x + Len(control(i).caption) + 2) Then
-                                If Not draggingForm Then
+                                If draggingForm = 0 And control(i).disabled = 0 Then
                                     tuiSetColor control(i).fghover, control(i).bghover
                                     hover = i
                                     If control(focus).type = controlType("menubar") Then focus = i
                                     If control(menuPanel).active Then GoSub openMenuPanel
+                                ElseIf control(i).disabled Then
+                                    tuiSetColor 8, control(i).bg
                                 End If
                                 If focus = i Then Locate , , 0
                             ElseIf focus = i Then
                                 tuiSetColor control(i).fghover, control(i).bghover
                             Else
                                 If control(menuPanel).parent <> i Or control(menuPanel).active = 0 Then
-                                    tuiSetColor control(i).fg, control(i).bg
+                                    If control(i).disabled Then
+                                        tuiSetColor 8, control(i).bg
+                                    Else
+                                        tuiSetColor control(i).fg, control(i).bg
+                                    End If
                                 ElseIf control(menuPanel).active Then
                                     tuiSetColor control(i).fghover, control(i).bghover
                                 End If
                             End If
-                            _PrintString (control(i).x, 1), " " + control(i).caption + " "
+                            _PrintString (x, 1), " " + control(i).caption + " "
                             If control(focus).type = controlType("menubar") Or (modalForm = 0 And control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0) Then
                                 tuiSetColor control(i).fghotkey, -1
-                                _PrintString (control(i).x + control(i).hotkeypos, 1), control(i).hotkey
+                                _PrintString (x + control(i).hotkeypos, 1), control(i).hotkey
                             End If
                         End If
                     Next
@@ -541,6 +556,9 @@ Function tui& (action As String) Static
                         Select Case control(focus).type
                             Case controlType("button"), controlType("menuitem")
                                 If control(focus).disabled = 0 Then clicked = focus
+                                If control(focus).type = controlType("menuitem") Then
+                                    control(menuPanel).active = 0
+                                End If
                             Case controlType("menubar")
                                 GoSub openMenuPanel
                         End Select
@@ -565,7 +583,7 @@ Function tui& (action As String) Static
                                     this = this - 1
                                     If this < 1 Then this = UBound(Control)
                                     If this = focus Then Exit Do
-                                    If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" Then
+                                    If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" And control(this).disabled = 0 And control(this).hidden = 0 Then
                                         focus = this
                                         Exit Do
                                     End If
@@ -581,7 +599,7 @@ Function tui& (action As String) Static
                                     this = this + 1
                                     If this > UBound(Control) Then this = 1
                                     If this = focus Then Exit Do
-                                    If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" Then
+                                    If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" And control(this).disabled = 0 And control(this).hidden = 0 Then
                                         focus = this
                                         Exit Do
                                     End If
@@ -596,7 +614,7 @@ Function tui& (action As String) Static
                                     this = this - 1
                                     If this < 1 Then this = UBound(Control)
                                     If this = focus Then Exit Do
-                                    If control(this).type = controlType("menubar") Then
+                                    If control(this).type = controlType("menubar") And control(this).disabled = 0 And control(this).hidden = 0 Then
                                         focus = this
                                         If control(menuPanel).active Then GoSub openMenuPanel
                                         Exit Do
@@ -612,7 +630,7 @@ Function tui& (action As String) Static
                                     this = this + 1
                                     If this > UBound(Control) Then this = 1
                                     If this = focus Then Exit Do
-                                    If control(this).type = controlType("menubar") Then
+                                    If control(this).type = controlType("menubar") And control(this).disabled = 0 And control(this).hidden = 0 Then
                                         focus = this
                                         If control(menuPanel).active Then GoSub openMenuPanel
                                         Exit Do
@@ -695,7 +713,7 @@ Function tui& (action As String) Static
                             '    mouseDownOn = focus
                         Else
                             draggingForm = 0
-                            focus = hover
+                            If control(focus).canReceiveFocus Then focus = hover
                         End If
                         mouseDownX = mx
                         mouseDownY = my
@@ -704,10 +722,13 @@ Function tui& (action As String) Static
                     If mouseDown Then
                         If mouseDownOn > 0 And mouseDownOn = hover Then
                             clicked = mouseDownOn
-                            focus = clicked
-                            If control(clicked).type = controlType("checkbox") Then
-                                control(clicked).value = Not control(clicked).value
-                            End If
+                            If control(focus).canReceiveFocus Then focus = clicked
+                            Select Case control(clicked).type
+                                Case controlType("checkbox")
+                                    control(clicked).value = Not control(clicked).value
+                                Case controlType("menuitem")
+                                    control(menuPanel).active = 0
+                            End Select
                         ElseIf mouseDownOn = 0 Then
                             focus = 0
                         End If
@@ -765,6 +786,10 @@ Function tui& (action As String) Static
                 Case "bg": tui& = control(this).bg
                 Case "fghover": tui& = control(this).fghover
                 Case "bghover": tui& = control(this).bghover
+                Case "shadow": tui& = control(this).shadow
+                Case "disabled": tui& = control(this).disabled
+                Case "hidden": tui& = control(this).hidden
+                Case "canreceivefocus": tui& = control(this).canReceiveFocus
                 Case "name": action = control(this).name
                 Case "caption": action = control(this).caption
                 Case "text": action = control(this).text
@@ -868,6 +893,9 @@ Function tui& (action As String) Static
                         If passed(action, "keybind") Then control(this).keybind = Val(getParam(action, "keybind"))
 
                         If passed(action, "shadow") Then control(this).shadow = (LCase$(getParam(action, "shadow")) = "true")
+                        If passed(action, "disabled") Then control(this).disabled = (LCase$(getParam(action, "disabled")) = "true")
+                        If passed(action, "hidden") Then control(this).hidden = (LCase$(getParam(action, "hidden")) = "true")
+                        If passed(action, "canreceivefocus") Then control(this).canReceiveFocus = (LCase$(getParam(action, "canreceivefocus")) = "true")
                 End Select
             Loop
         Case Else
@@ -904,10 +932,8 @@ Function tui& (action As String) Static
     Return
 
     setAutoWidth:
-    control(this).w = Len(control(this).caption) + 2
-    If control(this).type = controlType("checkbox") Then
-        control(this).w = control(this).w + 2
-    End If
+    control(this).w = Len(control(this).caption)
+    If control(this).type = controlType("checkbox") Then control(this).w = control(this).w + 4
     Return
 
     openMenuPanel:
