@@ -671,13 +671,15 @@ Function tui& (action As String) Static
                                 If UCase$(control(i).hotkey) = hotkeySearch Then
                                     If control(menuPanel(totalMenuPanels)).active = 0 Or (control(menuPanel(totalMenuPanels)).active And control(i).parent = control(menuPanel(totalMenuPanels)).parent) Or (control(menuPanel(totalMenuPanels)).active And control(i).type = controlType("menubar")) Then
                                         'alt+hotkey emulates click on control
-                                        If control(i).type = controlType("menubar") And control(i).disabled = 0 And control(i).hidden = 0 Then
-                                            mb = 0
-                                            mouseDown = -1
-                                            mouseDownOn = i
-                                            hover = i
-                                            prevFocus = focus
-                                            GoSub openMenuPanel
+                                        If control(i).type = controlType("menubar") Then
+                                            If control(i).disabled = 0 And control(i).hidden = 0 Then
+                                                mb = 0
+                                                mouseDown = -1
+                                                mouseDownOn = i
+                                                hover = i
+                                                prevFocus = focus
+                                                GoSub openMenuPanel
+                                            End If
                                         Else
                                             mb = 0
                                             mouseDown = -1
