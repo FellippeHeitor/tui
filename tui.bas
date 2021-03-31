@@ -4,6 +4,7 @@ Dim As Long form, closebutton, button1, button2, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuredo, editmenuproperties
 Dim As Long viewmenu, viewmenusubs, viewmenulinenumbers, viewmenuwarnings
+Dim As Long viewmenulinenumbersshowhide, viewmenulinenumbersshowbackground, viewmenulinenumbersshowseparator
 Dim As Long statusbar
 
 dotui "set highintensity=true"
@@ -36,10 +37,15 @@ editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Pro
 
 viewmenu = tui("add type=menubar;parent=0;name=viewmenu;caption=&View")
 dotui "set defaults;parent=viewmenu"
-viewmenusubs = tui("add type=menuitem;name=viewmenusubs;caption=&Subs...  F2")
-viewmenulinenumbers = tui("add type=menuitem;name=viewmenulinenumbers;caption=&Line Numbers...")
+viewmenusubs = tui("add type=menuitem;name=viewmenusubs;caption=&SUBs...  F2")
+viewmenulinenumbers = tui("add type=menuitem;name=viewmenulinenumbers;caption=&Line Numbers;special=submenu")
 dotui "add type=menuitem;caption=-"
-viewmenuwarnings = tui("add type=menuitem;name=viewmenuwarnings;caption=Compiler &Warnings...")
+viewmenuwarnings = tui("add type=menuitem;name=viewmenuwarnings;caption=Compiler &Warnings...  Ctrl+W")
+
+dotui "set defaults;parent=viewmenulinenumbers"
+viewmenulinenumbersshowhide = tui("add type=menuitem;name=viewmenulinenumbersshowhide;caption=&Show Line Numbers")
+viewmenulinenumbersshowbackground = tui("add type=menuitem;name=viewmenulinenumbersshowbackground;caption=&Background Color")
+viewmenulinenumbersshowseparator = tui("add type=menuitem;name=viewmenulinenumbersshowseparator;caption=Sho&w Separator")
 
 'dotui "set modal;control=form1"
 dotui "set focus;control=check1"
@@ -318,11 +324,11 @@ Function tui& (action As String) Static
                     If willActivateMenu Then
                         willActivateMenu = 0
                         If control(focus).type = controlType("menubar") Then
-                            focus = prevFocus
+                            If control(prevFocus).type <> controlType("menubar") Then focus = prevFocus
                         ElseIf control(focus).type <> controlType("menupanel") And control(focus).type <> controlType("menuitem") Then
                             For i = 1 To totalControls
                                 If control(i).type = controlType("menubar") Then
-                                    prevFocus = focus
+                                    If control(focus).type <> controlType("menubar") Then prevFocus = focus
                                     focus = i
                                     Exit For
                                 End If
@@ -446,6 +452,7 @@ Function tui& (action As String) Static
                     For i = 1 To totalControls
                         If control(i).type = controlType("menubar") Then
                             If control(i).hidden Or control(i).active = 0 Then _Continue
+                            If focus = i Then Locate , , 0
                             If firstMenuFound = 0 Then
                                 x = control(i).x
                                 tuiSetColor control(i).fg, control(i).bg
@@ -479,7 +486,7 @@ Function tui& (action As String) Static
                                 End If
                             End If
                             _PrintString (x, 1), " " + control(i).caption + " "
-                            If control(focus).type = controlType("menubar") Or (modalForm = 0 And control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0) Then
+                            If (control(focus).type = controlType("menubar") And control(i).disabled = 0) Or (modalForm = 0 And control(i).hotkeypos > 0 And showHotKey And control(menuPanel).active = 0 And control(i).disabled = 0) Then
                                 tuiSetColor control(i).fghotkey, -1
                                 _PrintString (x + control(i).hotkeypos, 1), control(i).hotkey
                             End If
@@ -489,6 +496,8 @@ Function tui& (action As String) Static
 
                 If control(menuPanel).active Then
                     Dim As String menuCaption, menuShortcut
+                    Dim As _Byte willActivateSubMenu
+                    willActivateSubMenu = 0
                     tuiSetColor control(menuPanel).fg, control(menuPanel).bg
                     boxShadow control(menuPanel).x, control(menuPanel).y, control(menuPanel).w, control(menuPanel).h
                     If hover = 0 And mx >= control(menuPanel).x And mx <= control(menuPanel).x + control(menuPanel).w - 1 And my >= control(menuPanel).y And my <= control(menuPanel).y + control(menuPanel).h - 1 Then
@@ -506,6 +515,9 @@ Function tui& (action As String) Static
                                 If j Then
                                     menuCaption = Left$(control(i).caption, j - 1)
                                     menuShortcut = Mid$(control(i).caption, j + 2)
+                                ElseIf control(i).special = "submenu" Then
+                                    menuCaption = control(i).caption
+                                    menuShortcut = Chr$(16)
                                 Else
                                     menuCaption = control(i).caption
                                 End If
@@ -518,20 +530,26 @@ Function tui& (action As String) Static
                                 If focus = i Then
                                     tuiSetColor control(menuPanel).fghover, control(menuPanel).bghover
                                     _PrintString (control(i).x - 1, control(i).y), Space$(control(menuPanel).w - 2)
+                                    If control(i).special = "submenu" Then willActivateSubMenu = -1
                                 Else
-                                    tuiSetColor control(menuPanel).fg, control(menuPanel).bg
+                                    If control(i).disabled Then
+                                        tuiSetColor 8, control(menuPanel).bg
+                                    Else
+                                        tuiSetColor control(menuPanel).fg, control(menuPanel).bg
+                                    End If
                                 End If
                                 _PrintString (control(i).x, control(i).y), menuCaption
                                 If Len(menuShortcut) Then
                                     _PrintString (control(menuPanel).x + control(menuPanel).w - Len(menuShortcut) - 2, control(i).y), menuShortcut
                                 End If
-                                If control(i).hotkeypos > 0 Then
+                                If control(i).hotkeypos > 0 And control(i).disabled = 0 Then
                                     Color control(i).fghotkey
                                     _PrintString (control(i).x + control(i).hotkeypos - 1, control(i).y), control(i).hotkey
                                 End If
                             End If
                         End If
                     Next
+                    If willActivateSubMenu Then GoSub openMenuPanel
                 End If
 
                 Color prevFG, prevBG
@@ -713,7 +731,7 @@ Function tui& (action As String) Static
                             '    mouseDownOn = focus
                         Else
                             draggingForm = 0
-                            If control(focus).canReceiveFocus Then focus = hover
+                            If control(hover).canReceiveFocus Then focus = hover
                         End If
                         mouseDownX = mx
                         mouseDownY = my
@@ -937,8 +955,10 @@ Function tui& (action As String) Static
     Return
 
     openMenuPanel:
-    If hover = 0 Then hover = focus
+    If control(hover).type <> controlType("menubar") And control(hover).type <> controlType("menuitem") Then hover = focus
+    If control(hover).type <> controlType("menubar") And control(hover).type <> controlType("menuitem") Then Return
     If modalForm Then Return
+    If control(hover).type = controlType("menuitem") Then PCopy 0, 127
     If menuPanel = 0 Then
         menuPanel = tui("add type=menupanel;name=tuimenupanel")
         control(menuPanel).fg = control(hover).fg
@@ -946,23 +966,40 @@ Function tui& (action As String) Static
         control(menuPanel).fghover = control(hover).fghover
         control(menuPanel).bghover = control(hover).bghover
     End If
+
+    If control(hover).type = controlType("menuitem") Then
+        control(menuPanel).x = control(hover).x + control(menuPanel).w - 2
+        control(menuPanel).y = control(hover).y - 1
+    Else
+        control(menuPanel).x = control(hover).x
+        control(menuPanel).y = control(hover).y + 1
+    End If
+
     control(menuPanel).active = -1
     control(menuPanel).w = 4
     control(menuPanel).parent = hover
-    control(menuPanel).x = control(hover).x
-    control(menuPanel).y = control(hover).y + 1
+
     totalMenuPanelItems = 0
     focus = 0
     For j = 1 To totalControls
         If control(j).type = controlType("menuitem") And control(j).parent = hover Then
             If focus = 0 Then focus = j
             totalMenuPanelItems = totalMenuPanelItems + 1
-            control(j).x = control(hover).x + 2
-            control(j).y = control(hover).y + totalMenuPanelItems + 1
+            control(j).x = control(menuPanel).x + 2
+            control(j).y = control(menuPanel).y + totalMenuPanelItems
             If control(menuPanel).w < Len(control(j).caption) + 4 Then control(menuPanel).w = Len(control(j).caption) + 4
         End If
     Next
     control(menuPanel).h = totalMenuPanelItems + 2
+    While control(menuPanel).x + control(menuPanel).w > _Width
+        control(menuPanel).x = control(menuPanel).x - 1
+        If control(menuPanel).x < 1 Then
+            Color 7, 0
+            Cls
+            Print "Error positioning menu on screen."
+            End
+        End If
+    Wend
     Return
 End Function
 
