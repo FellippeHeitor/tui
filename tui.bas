@@ -52,7 +52,6 @@ dotui "set defaults;parent=viewmenulinenumbersshowbackground"
 dotui "add type=menuitem;name=viewmenubgbright;caption=&Bright mode"
 dotui "add type=menuitem;name=viewmenubgdark;caption=&Dark side of the moon"
 
-
 'dotui "set modal;control=form1"
 dotui "set focus;control=check1"
 
@@ -516,7 +515,7 @@ Function tui& (action As String) Static
                     For this = 1 To totalMenuPanels
                         tuiSetColor control(menuPanel(this)).fg, control(menuPanel(this)).bg
                         boxShadow control(menuPanel(this)).x, control(menuPanel(this)).y, control(menuPanel(this)).w, control(menuPanel(this)).h
-                        If hover = 0 And keyboardControl = 0 And mx >= control(menuPanel(this)).x And mx <= control(menuPanel(this)).x + control(menuPanel(this)).w - 1 And my >= control(menuPanel(this)).y And my <= control(menuPanel(this)).y + control(menuPanel(this)).h - 1 Then
+                        If keyboardControl = 0 And mx >= control(menuPanel(this)).x And mx <= control(menuPanel(this)).x + control(menuPanel(this)).w - 1 And my >= control(menuPanel(this)).y And my <= control(menuPanel(this)).y + control(menuPanel(this)).h - 1 Then
                             hover = menuPanel(this)
                         End If
                         For i = 1 To totalControls
@@ -771,7 +770,11 @@ Function tui& (action As String) Static
                     Else
                         mouseDown = -1
                         mouseDownOn = hover
-                        If control(hover).type = controlType("form") Then
+                        If hover = 0 Then
+                            While totalMenuPanels
+                                GoSub closeMenuPanel
+                            Wend
+                        ElseIf control(hover).type = controlType("form") Then
                             If my = control(hover).y Then draggingForm = -1
                         ElseIf control(hover).type = controlType("menubar") Then
                             If control(menuPanel(totalMenuPanels)).active And hover = control(menuPanel(totalMenuPanels)).parent Then
@@ -781,8 +784,6 @@ Function tui& (action As String) Static
                             Else
                                 GoSub openMenuPanel
                             End If
-                            'ElseIf control(hover).type = controlType("menupanel") And control(focus).type = controlType("menuitem") Then
-                            '    mouseDownOn = focus
                         Else
                             draggingForm = 0
                             If control(mouseDownOn).canReceiveFocus Then focus = hover
