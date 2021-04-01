@@ -12,7 +12,7 @@ dotui "set highintensity=true"
 statusbar = tui("add type=label;name=statusbar;caption= Ready.;x=1;y=25;w=80;h=1;fg=0;bg=3")
 
 dotui "set defaults;fg=0;bg=7;fghotkey=15"
-form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=40;h=10")
+form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=50;h=10")
 
 dotui "set defaults;parent=form1"
 closebutton = tui("add type=button;name=closebutton;caption=[X];fg=20;fghover=28;y=0;align=top-right;shadow=false;canreceivefocus=false")
@@ -56,10 +56,14 @@ dotui "add type=menuitem;name=viewmenubgdark;caption=&Dark side of the moon"
 dotui "set focus;control=check1"
 
 Dim As _Byte updateLabel
+Dim As Long i
 updateLabel = -1
 Do
-    Color 31, 0
+    Color 25, 0
     Cls
+    For i = 1 To _Height
+        _PrintString (1, i), String$(_Width, 176)
+    Next
 
     If updateLabel Then
         If tui("get control=check1;value") Then
@@ -81,11 +85,7 @@ Do
         dotui "set control=statusbar;caption= Ready."
         Select Case tui("control")
             Case button1
-                If tui("get control=editmenu;disabled") Then
-                    dotui "set control=editmenu;disabled=false"
-                Else
-                    dotui "set control=editmenu;disabled=true"
-                End If
+                dotui "delete control=editmenu"
             Case check1
                 updateLabel = -1
             Case button2, filemenuexit, closebutton
@@ -976,6 +976,17 @@ Function tui& (action As String) Static
                         If passed(action, "canreceivefocus") Then control(this).canReceiveFocus = (LCase$(getParam(action, "canreceivefocus")) = "true")
                 End Select
             Loop
+        Case "delete"
+            temp = getParam(action, "control")
+            If Len(temp) Then
+                GoSub getControlID
+                If this Then
+                    For i = this To totalControls
+                        Swap control(i + 1), control(i)
+                    Next
+                    totalControls = totalControls - 1
+                End If
+            End If
         Case Else
             Cls
             Print "unknown action: "; getAction(action)
