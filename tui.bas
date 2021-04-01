@@ -12,7 +12,7 @@ dotui "set highintensity=true"
 statusbar = tui("add type=label;name=statusbar;caption= Ready.;x=1;y=25;w=80;h=1;fg=0;bg=3")
 
 dotui "set defaults;fg=0;bg=7;fghotkey=15"
-form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=50;h=10")
+form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=50;h=11")
 
 dotui "set defaults;parent=form1"
 closebutton = tui("add type=button;name=closebutton;caption=[X];fg=20;fghover=28;y=0;align=top-right;shadow=false;canreceivefocus=false")
@@ -20,7 +20,7 @@ check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x
 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=3;bghover=-1;special=autosize")
 label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=4;bghover=-1;special=autosize")
 label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=5;bghover=-1;special=autosize")
-button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=7;w=20;fg=31;bg=9;fghover=16;bghover=7")
+button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=8;w=20;fg=31;bg=9;fghover=16;bghover=7")
 
 dotui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
@@ -85,7 +85,11 @@ Do
         dotui "set control=statusbar;caption= Ready."
         Select Case tui("control")
             Case button1
-                dotui "delete control=editmenu"
+                If tui("get control=editmenu;disabled") Then
+                    dotui "set control=editmenu;disabled=false"
+                Else
+                    dotui "set control=editmenu;disabled=true"
+                End If
             Case check1
                 updateLabel = -1
             Case button2, filemenuexit, closebutton
@@ -510,8 +514,8 @@ Function tui& (action As String) Static
                 If totalMenuPanels > 0 Then
                     Dim As String menuCaption, menuShortcut
                     Dim As Long willActivateMenuPanel
+                    Dim As Single activateMenuPanelTimer
 
-                    willActivateMenuPanel = 0
                     For this = 1 To totalMenuPanels
                         tuiSetColor control(menuPanel(this)).fg, control(menuPanel(this)).bg
                         boxShadow control(menuPanel(this)).x, control(menuPanel(this)).y, control(menuPanel(this)).w, control(menuPanel(this)).h
@@ -545,7 +549,7 @@ Function tui& (action As String) Static
                                     If (focus = i And control(i).parent = control(menuPanel(totalMenuPanels)).parent) Or InStr(menuPanelParents, MKL$(i) + MKL$(-1)) > 0 Then
                                         tuiSetColor control(menuPanel(this)).fghover, control(menuPanel(this)).bghover
                                         _PrintString (control(i).x - 1, control(i).y), Space$(control(menuPanel(this)).w - 2)
-                                        If focus = i And control(i).special = "submenu" And willActivateMenuPanel = 0 Then willActivateMenuPanel = i
+                                        If focus = i And control(i).special = "submenu" And willActivateMenuPanel = 0 Then willActivateMenuPanel = i: activateMenuPanelTimer = Timer
                                     Else
                                         If control(i).disabled Then
                                             tuiSetColor 8, control(menuPanel(this)).bg
@@ -565,11 +569,14 @@ Function tui& (action As String) Static
                             End If
                         Next
                     Next
+                End If
 
-                    If willActivateMenuPanel > 0 And InStr(menuPanelParents, MKL$(willActivateMenuPanel) + MKL$(-1)) = 0 And keyboardControl = 0 Then
-                        focus = willActivateMenuPanel
-                        GoSub openMenuPanel
-                    End If
+                If timeElapsedSince(activateMenuPanelTimer) >= .5 And willActivateMenuPanel > 0 And InStr(menuPanelParents, MKL$(willActivateMenuPanel) + MKL$(-1)) = 0 And keyboardControl = 0 Then
+                    focus = willActivateMenuPanel
+                    GoSub openMenuPanel
+                    willActivateMenuPanel = 0
+                ElseIf timeElapsedSince(activateMenuPanelTimer) >= .5 And willActivateMenuPanel > 0 Then
+                    willActivateMenuPanel = 0
                 End If
 
                 If control(focus).type = controlType("menuitem") Then
@@ -801,10 +808,13 @@ Function tui& (action As String) Static
                                     Case controlType("checkbox")
                                         control(clicked).value = Not control(clicked).value
                                     Case controlType("menuitem")
-                                        While totalMenuPanels
-                                            GoSub closeMenuPanel
-                                        Wend
-
+                                        If control(clicked).special <> "submenu" Then
+                                            While totalMenuPanels
+                                                GoSub closeMenuPanel
+                                            Wend
+                                        Else
+                                            GoSub openMenuPanel
+                                        End If
                                 End Select
                             End If
                         ElseIf mouseDownOn = 0 Then
