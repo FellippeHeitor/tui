@@ -8,13 +8,13 @@ Dim As Long viewmenu, viewmenusubs, viewmenulinenumbers, viewmenuwarnings
 Dim As Long viewmenulinenumbersshowhide, viewmenulinenumbersshowbackground, viewmenulinenumbersshowseparator
 Dim As Long statusbar
 
-dotui "set highintensity=true"
+tui "set highintensity=true"
 statusbar = tui("add type=label;name=statusbar;caption= Ready.;x=1;y=25;w=80;h=1;fg=0;bg=3")
 
-dotui "set defaults;fg=0;bg=7;fghotkey=15"
+tui "set defaults;fg=0;bg=7;fghotkey=15"
 form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=50;h=11")
 
-dotui "set defaults;parent=form1"
+tui "set defaults;parent=form1"
 closebutton = tui("add type=button;name=closebutton;caption=[X];fg=20;fghover=28;y=0;align=top-right;shadow=false;canreceivefocus=false")
 check1 = tui("add type=checkbox;value=-1;name=check1;caption=&I'm a check box.;x=2;y=2")
 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=3;bghover=-1;special=autosize")
@@ -22,38 +22,38 @@ label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=4;bghover=-1;speci
 label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=5;bghover=-1;special=autosize")
 button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=8;w=20;fg=31;bg=9;fghover=16;bghover=7")
 
-dotui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
+tui "set defaults;fg=0;bg=7;fghover=7;bghover=0"
 filemenu = tui("add type=menubar;parent=0;name=filemenu;caption=&File")
-dotui "set defaults;parent=filemenu"
+tui "set defaults;parent=filemenu"
 filemenunew = tui("add type=menuitem;name=filemenunew;caption=&New  Ctrl+N")
-dotui "add type=menuitem;caption=-"
+tui "add type=menuitem;caption=-"
 filemenuexit = tui("add type=menuitem;name=filemenuexit;caption=E&xit")
 
 editmenu = tui("add type=menubar;parent=0;name=editmenu;caption=&Edit")
-dotui "set defaults;parent=editmenu"
+tui "set defaults;parent=editmenu"
 editmenuundo = tui("add type=menuitem;name=editmenuundo;caption=&Undo  Ctrl+Z")
 editmenuredo = tui("add type=menuitem;name=editmenuredo;caption=&Redo  Ctrl+Y;disabled=true")
-dotui "add type=menuitem;caption=-"
+tui "add type=menuitem;caption=-"
 editmenuproperties = tui("add type=menuitem;name=editmenuproperties;caption=&Properties...")
 
 viewmenu = tui("add type=menubar;parent=0;name=viewmenu;caption=&View")
-dotui "set defaults;parent=viewmenu"
+tui "set defaults;parent=viewmenu"
 viewmenusubs = tui("add type=menuitem;name=viewmenusubs;caption=&SUBs...  F2")
 viewmenulinenumbers = tui("add type=menuitem;name=viewmenulinenumbers;caption=&Line Numbers;special=submenu")
-dotui "add type=menuitem;caption=-"
+tui "add type=menuitem;caption=-"
 viewmenuwarnings = tui("add type=menuitem;name=viewmenuwarnings;caption=Compiler &Warnings...  Ctrl+W")
 
-dotui "set defaults;parent=viewmenulinenumbers"
+tui "set defaults;parent=viewmenulinenumbers"
 viewmenulinenumbersshowhide = tui("add type=menuitem;name=viewmenulinenumbersshowhide;caption=&Show Line Numbers")
 viewmenulinenumbersshowbackground = tui("add type=menuitem;name=viewmenulinenumbersshowbackground;caption=&Background Color;special=submenu")
 viewmenulinenumbersshowseparator = tui("add type=menuitem;name=viewmenulinenumbersshowseparator;caption=Sho&w Separator")
 
-dotui "set defaults;parent=viewmenulinenumbersshowbackground"
-dotui "add type=menuitem;name=viewmenubgbright;caption=&Bright mode"
-dotui "add type=menuitem;name=viewmenubgdark;caption=&Dark side of the moon"
+tui "set defaults;parent=viewmenulinenumbersshowbackground"
+tui "add type=menuitem;name=viewmenubgbright;caption=&Bright mode"
+tui "add type=menuitem;name=viewmenubgdark;caption=&Dark side of the moon"
 
-'dotui "set modal;control=form1"
-dotui "set focus;control=check1"
+'tui "set modal;control=form1"
+tui "set focus;control=check1"
 
 Dim As _Byte updateLabel
 Dim As Long i
@@ -67,47 +67,47 @@ Do
 
     If updateLabel Then
         If tui("get control=check1;value") Then
-            dotui "set control=label1;caption=The box is checked.;color=inherit"
+            tui "set control=label1;caption=The box is checked.;color=inherit"
         Else
-            dotui "set control=label1;caption=The box is unchecked.;color=inherit"
+            tui "set control=label1;caption=The box is unchecked.;color=inherit"
         End If
     End If
 
     temp$ = "get hover"
-    dotui temp$
-    dotui "set control=label2;caption=Hover: " + temp$ + ";color=inherit"
+    tui temp$
+    tui "set control=label2;caption=Hover: " + temp$ + ";color=inherit"
 
     temp$ = "get focus"
-    dotui temp$
-    dotui "set control=label3;caption=Focus: " + temp$ + ";color=inherit"
+    tui temp$
+    tui "set control=label3;caption=Focus: " + temp$ + ";color=inherit"
 
     If tui("clicked") Then
-        dotui "set control=statusbar;caption= Ready."
+        tui "set control=statusbar;caption= Ready."
         Select Case tui("control")
             Case button1
                 If tui("get control=editmenu;disabled") Then
-                    dotui "set control=editmenu;disabled=false"
+                    tui "set control=editmenu;disabled=false"
                 Else
-                    dotui "set control=editmenu;disabled=true"
+                    tui "set control=editmenu;disabled=true"
                 End If
             Case check1
                 updateLabel = -1
             Case button2, filemenuexit, closebutton
                 System
             Case label1
-                dotui "set control=label1;caption=This is not a button!;fg=4;fghover=20"
+                tui "set control=label1;caption=This is not a button!;fg=4;fghover=20"
                 updateLabel = 0
             Case Else
                 temp$ = "get control=" + Str$(tui("control")) + ";name"
-                dotui temp$
-                dotui "set control=statusbar;caption= This control has no action assigned to it: " + temp$
+                tui temp$
+                tui "set control=statusbar;caption= This control has no action assigned to it: " + temp$
         End Select
     End If
     _Display
     _Limit 30
 Loop
 
-Sub dotui (action As String)
+Sub tui (action As String)
     Dim As Long result
     result = tui&(action)
 End Sub
@@ -640,7 +640,7 @@ Function tui& (action As String) Static
                                 this = focus
                                 Do
                                     this = this - 1
-                                    If this < 1 Then this = UBound(Control)
+                                    If this < 1 Then this = UBound(control)
                                     If this = focus Then Exit Do
                                     If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" And control(this).hidden = 0 Then
                                         focus = this
@@ -656,7 +656,7 @@ Function tui& (action As String) Static
                                 this = focus
                                 Do
                                     this = this + 1
-                                    If this > UBound(Control) Then this = 1
+                                    If this > UBound(control) Then this = 1
                                     If this = focus Then Exit Do
                                     If control(this).type = controlType("menuitem") And control(this).parent = control(focus).parent And control(this).caption <> "-" And control(this).hidden = 0 Then
                                         focus = this
@@ -679,7 +679,7 @@ Function tui& (action As String) Static
                                 this = focus
                                 Do
                                     this = this - 1
-                                    If this < 1 Then this = UBound(Control)
+                                    If this < 1 Then this = UBound(control)
                                     If this = focus Then Exit Do
                                     If control(this).type = controlType("menubar") And control(this).disabled = 0 And control(this).hidden = 0 Then
                                         focus = this
@@ -702,7 +702,7 @@ Function tui& (action As String) Static
                                 this = focus
                                 Do
                                     this = this + 1
-                                    If this > UBound(Control) Then this = 1
+                                    If this > UBound(control) Then this = 1
                                     If this = focus Then Exit Do
                                     If control(this).type = controlType("menubar") And control(this).disabled = 0 And control(this).hidden = 0 Then
                                         focus = this
