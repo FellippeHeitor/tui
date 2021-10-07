@@ -549,7 +549,11 @@ Function tui& (action As String) Static
                                     If (focus = i And control(i).parent = control(menuPanel(totalMenuPanels)).parent) Or InStr(menuPanelParents, MKL$(i) + MKL$(-1)) > 0 Then
                                         tuiSetColor control(menuPanel(this)).fghover, control(menuPanel(this)).bghover
                                         _PrintString (control(i).x - 1, control(i).y), Space$(control(menuPanel(this)).w - 2)
-                                        If focus = i And control(i).special = "submenu" And willActivateMenuPanel = 0 Then willActivateMenuPanel = i: activateMenuPanelTimer = Timer
+                                        If focus = i And control(i).special = "submenu" And willActivateMenuPanel = 0 Then
+                                            willActivateMenuPanel = i: activateMenuPanelTimer = Timer
+                                        ElseIf focus = i And control(i).special <> "submenu" And willActivateMenuPanel > 0 Then
+                                            willActivateMenuPanel = 0
+                                        End If
                                     Else
                                         If control(i).disabled Then
                                             tuiSetColor 8, control(menuPanel(this)).bg
