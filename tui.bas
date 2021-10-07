@@ -1,5 +1,7 @@
 Option _Explicit
 
+$Resize:On
+
 Dim As String temp
 Dim As Long form, closebutton, button1, button2, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
@@ -59,6 +61,19 @@ Dim As _Byte updateLabel
 Dim As Long i
 updateLabel = -1
 Do
+    While _Resize
+        Dim As Integer newWidth, newHeight
+        Dim As _Byte willResize
+        newWidth = _ResizeWidth
+        newHeight = _ResizeHeight
+        willResize = -1
+    Wend
+
+    If willResize Then
+        willResize = 0
+        Width newWidth \ 8, newHeight \ 16
+    End If
+
     Color 25, 0
     Cls
     For i = 1 To _Height
