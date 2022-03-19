@@ -750,7 +750,7 @@ Function tui& (action As String) Static
                                     End If
                                 Loop
                         End Select
-                    Case 65 TO 90, 97 TO 122 'A-Z, a-z
+                    Case 65 To 90, 97 To 122 'A-Z, a-z
                         If showHotKey Or control(menuPanel(totalMenuPanels)).active Or control(focus).type = controlType("menubar") Then
                             Dim As String hotkeySearch
                             hotkeySearch = UCase$(Chr$(k))
@@ -1077,33 +1077,33 @@ Function tui& (action As String) Static
 
     openMenuPanel:
     If control(hover).type <> controlType("menubar") And control(hover).type <> controlType("menuitem") Then hover = focus
-    IF control(hover).type <> controlType("menubar") AND control(hover).type <> controlType("menuitem") THEN RETURN
-    IF modalForm THEN RETURN
+    If control(hover).type <> controlType("menubar") And control(hover).type <> controlType("menuitem") Then Return
+    If modalForm Then Return
 
-    IF control(menuPanel(totalMenuPanels)).parent = hover THEN RETURN
-    IF control(hover).type = controlType("menuitem") AND control(hover).special <> "submenu" THEN RETURN
+    If control(menuPanel(totalMenuPanels)).parent = hover Then Return
+    If control(hover).type = controlType("menuitem") And control(hover).special <> "submenu" Then Return
 
-    IF control(hover).type = controlType("menubar") THEN
-        WHILE totalMenuPanels
-            GOSUB closeMenuPanel
-        WEND
-    END IF
+    If control(hover).type = controlType("menubar") Then
+        While totalMenuPanels
+            GoSub closeMenuPanel
+        Wend
+    End If
 
     totalMenuPanels = totalMenuPanels + 1
-    menuPanel(totalMenuPanels) = tui("add type=menupanel;name=tuimenupanel" + STR$(totalMenuPanels))
+    menuPanel(totalMenuPanels) = tui("add type=menupanel;name=tuimenupanel" + Str$(totalMenuPanels))
     menuPanelParents = menuPanelParents + MKL$(hover) + MKL$(-1)
     control(menuPanel(totalMenuPanels)).fg = control(hover).fg
     control(menuPanel(totalMenuPanels)).bg = control(hover).bg
     control(menuPanel(totalMenuPanels)).fghover = control(hover).fghover
     control(menuPanel(totalMenuPanels)).bghover = control(hover).bghover
 
-    IF control(hover).type = controlType("menuitem") THEN
+    If control(hover).type = controlType("menuitem") Then
         control(menuPanel(totalMenuPanels)).x = control(hover).x + control(menuPanel(totalMenuPanels - 1)).w - 2
         control(menuPanel(totalMenuPanels)).y = control(hover).y - 1
-    ELSE
+    Else
         control(menuPanel(totalMenuPanels)).x = control(hover).x
         control(menuPanel(totalMenuPanels)).y = control(hover).y + 1
-    END IF
+    End If
 
     control(menuPanel(totalMenuPanels)).active = -1
     control(menuPanel(totalMenuPanels)).w = 4
@@ -1111,172 +1111,172 @@ Function tui& (action As String) Static
 
     totalMenuPanelItems = 0
     focus = 0
-    FOR j = 1 TO UBOUND(control)
-        IF control(j).type = controlType("menuitem") AND control(j).parent = hover THEN
-            IF focus = 0 THEN focus = j
+    For j = 1 To UBound(control)
+        If control(j).type = controlType("menuitem") And control(j).parent = hover Then
+            If focus = 0 Then focus = j
             totalMenuPanelItems = totalMenuPanelItems + 1
             control(j).x = control(menuPanel(totalMenuPanels)).x + 2
             control(j).y = control(menuPanel(totalMenuPanels)).y + totalMenuPanelItems
-            IF control(j).special = "submenu" AND RIGHT$(control(j).caption, 3) <> SPACE$(3) THEN
-                control(j).caption = control(j).caption + SPACE$(3)
-            END IF
-            IF control(menuPanel(totalMenuPanels)).w < LEN(control(j).caption) + 4 THEN control(menuPanel(totalMenuPanels)).w = LEN(control(j).caption) + 4
-        END IF
-    NEXT
+            If control(j).special = "submenu" And Right$(control(j).caption, 3) <> Space$(3) Then
+                control(j).caption = control(j).caption + Space$(3)
+            End If
+            If control(menuPanel(totalMenuPanels)).w < Len(control(j).caption) + 4 Then control(menuPanel(totalMenuPanels)).w = Len(control(j).caption) + 4
+        End If
+    Next
     control(menuPanel(totalMenuPanels)).h = totalMenuPanelItems + 2
 
-    WHILE control(menuPanel(totalMenuPanels)).x + control(menuPanel(totalMenuPanels)).w > _WIDTH
+    While control(menuPanel(totalMenuPanels)).x + control(menuPanel(totalMenuPanels)).w > _Width
         control(menuPanel(totalMenuPanels)).x = control(menuPanel(totalMenuPanels)).x - 1
-        IF control(menuPanel(totalMenuPanels)).x < 1 THEN
-            COLOR 7, 0
-            CLS
-            PRINT "Error positioning menu on screen."
-            END
-        END IF
-        FOR j = 1 TO UBOUND(control)
-            IF control(j).type = controlType("menuitem") AND control(j).parent = control(menuPanel(totalMenuPanels)).parent THEN control(j).x = control(j).x - 1
-        NEXT
-    WEND
-    RETURN
+        If control(menuPanel(totalMenuPanels)).x < 1 Then
+            Color 7, 0
+            Cls
+            Print "Error positioning menu on screen."
+            End
+        End If
+        For j = 1 To UBound(control)
+            If control(j).type = controlType("menuitem") And control(j).parent = control(menuPanel(totalMenuPanels)).parent Then control(j).x = control(j).x - 1
+        Next
+    Wend
+    Return
 
     closeMenuPanel:
-    IF totalMenuPanels > 0 THEN
+    If totalMenuPanels > 0 Then
         control(menuPanel(totalMenuPanels)).active = 0
         totalMenuPanels = totalMenuPanels - 1
-        menuPanelParents = LEFT$(menuPanelParents, LEN(menuPanelParents) - 8)
-        IF totalMenuPanels = 0 THEN focus = prevFocus
-    END IF
-    RETURN
+        menuPanelParents = Left$(menuPanelParents, Len(menuPanelParents) - 8)
+        If totalMenuPanels = 0 Then focus = prevFocus
+    End If
+    Return
 
     enableKeyboardControl:
     keyboardControl = -1
     oldmx = mx
     oldmy = my
-    RETURN
+    Return
 
-END FUNCTION
+End Function
 
-SUB tuiSetColor (fg AS INTEGER, bg AS INTEGER)
-    IF fg > -1 THEN COLOR fg
-    IF bg > -1 THEN COLOR , bg
-END SUB
+Sub tuiSetColor (fg As Integer, bg As Integer)
+    If fg > -1 Then Color fg
+    If bg > -1 Then Color , bg
+End Sub
 
-FUNCTION controlType& (__a$)
-    DIM typeList$
+Function controlType& (__a$)
+    Dim typeList$
     typeList$ = "@form@button@checkbox@label@textbox@menubar@menuitem@menupanel@"
 
-    controlType& = INSTR(typeList$, LCASE$("@" + __a$ + "@"))
-END FUNCTION
+    controlType& = InStr(typeList$, LCase$("@" + __a$ + "@"))
+End Function
 
-FUNCTION getAction$ (__a$)
-    DIM AS LONG position
-    DIM AS STRING result, sep
+Function getAction$ (__a$)
+    Dim As Long position
+    Dim As String result, sep
 
     sep = " "
-    position = INSTR(__a$, sep)
-    IF position = 0 THEN
+    position = InStr(__a$, sep)
+    If position = 0 Then
         getAction$ = __a$
         __a$ = ""
-    ELSE
-        result = LCASE$(LEFT$(__a$, position - 1))
-        IF INSTR(result, "=") > 0 THEN EXIT FUNCTION
-        __a$ = MID$(__a$, position + 1)
+    Else
+        result = LCase$(Left$(__a$, position - 1))
+        If InStr(result, "=") > 0 Then Exit Function
+        __a$ = Mid$(__a$, position + 1)
         getAction$ = result
-    END IF
-END FUNCTION
+    End If
+End Function
 
-FUNCTION passed%% (__action$, __parameter$)
-    DIM AS STRING s, p, os, sep
-    DIM AS LONG position
+Function passed%% (__action$, __parameter$)
+    Dim As String s, p, os, sep
+    Dim As Long position
 
     sep = ";"
     os = sep + __action$ + sep
-    s = LCASE$(os)
-    p = sep + LCASE$(__parameter$) + "="
+    s = LCase$(os)
+    p = sep + LCase$(__parameter$) + "="
 
-    position = _INSTRREV(s, p)
+    position = _InStrRev(s, p)
     passed%% = position > 0
-END FUNCTION
+End Function
 
-FUNCTION getParam$ (__action$, __parameter$)
-    DIM AS STRING s, p, os, result, sep
-    DIM AS LONG position
+Function getParam$ (__action$, __parameter$)
+    Dim As String s, p, os, result, sep
+    Dim As Long position
 
     sep = ";"
     os = sep + __action$ + sep
-    s = LCASE$(os)
-    p = sep + LCASE$(__parameter$) + "="
+    s = LCase$(os)
+    p = sep + LCase$(__parameter$) + "="
 
-    position = _INSTRREV(s, p)
-    IF position = 0 THEN EXIT FUNCTION
+    position = _InStrRev(s, p)
+    If position = 0 Then Exit Function
 
-    result = MID$(os, position + LEN(p))
-    getParam$ = LEFT$(result, INSTR(result, sep) - 1)
-END FUNCTION
+    result = Mid$(os, position + Len(p))
+    getParam$ = Left$(result, InStr(result, sep) - 1)
+End Function
 
-FUNCTION getNextParam$ (__action$) STATIC
-    DIM AS STRING lastAction, thisAction, sep, temp
-    DIM AS LONG position, prevPosition, findEqual
+Function getNextParam$ (__action$) Static
+    Dim As String lastAction, thisAction, sep, temp
+    Dim As Long position, prevPosition, findEqual
 
     sep = ";"
 
-    IF __action$ <> lastAction THEN
+    If __action$ <> lastAction Then
         lastAction = __action$
         thisAction = sep + __action$ + sep
         position = 1
-    END IF
+    End If
 
     prevPosition = position
-    position = INSTR(prevPosition + 1, thisAction, sep)
-    IF position THEN
-        temp = MID$(thisAction, prevPosition + 1, position - prevPosition - 1)
-        findEqual = INSTR(temp, "=")
-        IF findEqual THEN
-            getNextParam$ = LEFT$(temp, findEqual - 1)
-        ELSE
+    position = InStr(prevPosition + 1, thisAction, sep)
+    If position Then
+        temp = Mid$(thisAction, prevPosition + 1, position - prevPosition - 1)
+        findEqual = InStr(temp, "=")
+        If findEqual Then
+            getNextParam$ = Left$(temp, findEqual - 1)
+        Else
             getNextParam$ = temp
-        END IF
-    END IF
-END FUNCTION
+        End If
+    End If
+End Function
 
 
-SUB box (x AS LONG, y AS LONG, w AS LONG, h AS LONG)
-    DIM AS LONG y2
+Sub box (x As Long, y As Long, w As Long, h As Long)
+    Dim As Long y2
 
-    _PRINTSTRING (x, y), CHR$(218) + STRING$(w - 2, 196) + CHR$(191)
-    FOR y2 = y + 1 TO y + h - 2
-        _PRINTSTRING (x, y2), CHR$(179) + SPACE$(w - 2) + CHR$(179)
-    NEXT
-    _PRINTSTRING (x, y + h - 1), CHR$(192) + STRING$(w - 2, 196) + CHR$(217)
-END SUB
+    _PrintString (x, y), Chr$(218) + String$(w - 2, 196) + Chr$(191)
+    For y2 = y + 1 To y + h - 2
+        _PrintString (x, y2), Chr$(179) + Space$(w - 2) + Chr$(179)
+    Next
+    _PrintString (x, y + h - 1), Chr$(192) + String$(w - 2, 196) + Chr$(217)
+End Sub
 
-SUB boxShadow (x AS LONG, y AS LONG, w AS LONG, h AS LONG)
+Sub boxShadow (x As Long, y As Long, w As Long, h As Long)
     box x, y, w, h
 
-    DIM AS LONG y2, x2
+    Dim As Long y2, x2
 
     'shadow
-    COLOR 8, 0
-    FOR y2 = y + 1 TO y + h - 1
-        FOR x2 = x + w TO x + w + 1
-            IF x2 <= _WIDTH AND y2 <= _HEIGHT THEN
-                _PRINTSTRING (x2, y2), CHR$(SCREEN(y2, x2))
-            END IF
-        NEXT
-    NEXT
+    Color 8, 0
+    For y2 = y + 1 To y + h - 1
+        For x2 = x + w To x + w + 1
+            If x2 <= _Width And y2 <= _Height Then
+                _PrintString (x2, y2), Chr$(Screen(y2, x2))
+            End If
+        Next
+    Next
 
     y2 = y + h
-    IF y2 <= _HEIGHT THEN
-        FOR x2 = x + 2 TO x + w + 1
-            IF x2 <= _WIDTH THEN
-                _PRINTSTRING (x2, y2), CHR$(SCREEN(y2, x2))
-            END IF
-        NEXT
-    END IF
-END SUB
+    If y2 <= _Height Then
+        For x2 = x + 2 To x + w + 1
+            If x2 <= _Width Then
+                _PrintString (x2, y2), Chr$(Screen(y2, x2))
+            End If
+        Next
+    End If
+End Sub
 
-FUNCTION timeElapsedSince! (startTime!)
-    IF startTime! > TIMER THEN startTime! = startTime! - 86400
-    timeElapsedSince! = TIMER - startTime!
-END FUNCTION
+Function timeElapsedSince! (startTime!)
+    If startTime! > Timer Then startTime! = startTime! - 86400
+    timeElapsedSince! = Timer - startTime!
+End Function
 
