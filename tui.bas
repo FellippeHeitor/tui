@@ -1,8 +1,8 @@
 Option _Explicit
 On Error GoTo oops
-$Resize:On
 
-Dim As String temp
+$Resize:On
+Dim As String tempStr
 Dim As Long form, closebutton, button1, check1, label1, label2, label3
 Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuredo, editmenuproperties
@@ -46,11 +46,12 @@ tui "add type=menuitem;name=viewmenubgdark;caption=&Dark side of the moon"
 
 Dim As _Byte updateLabel
 Dim As Long i
+Dim As Integer newWidth, newHeight ' <-- Scopes moved outside loop
+Dim As _Byte willResize
+
 updateLabel = -1
 Do
     While _Resize
-        Dim As Integer newWidth, newHeight
-        Dim As _Byte willResize
         newWidth = _ResizeWidth
         newHeight = _ResizeHeight
         willResize = -1
@@ -76,13 +77,11 @@ Do
         End If
     End If
 
-    temp$ = "get hover"
-    tui temp$
-    tui "set control=label2;caption=Hover: " + temp$ + ";color=inherit"
+    tempStr = tuiGet$("get hover")
+    tui "set control=label2;caption=Hover: " + tempStr + ";color=inherit"
 
-    temp$ = "get focus"
-    tui temp$
-    tui "set control=label3;caption=Focus: " + temp$ + ";color=inherit"
+    tempStr = tuiGet$("get focus")
+    tui "set control=label3;caption=Focus: " + tempStr + ";color=inherit"
 
     If tui("clicked") Then
         tui "set control=statusbar;caption= Ready."
@@ -112,7 +111,6 @@ Do
                 label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=5;bghover=-1;special=autosize")
                 button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=8;w=20;fg=31;bg=9;fghover=16;bghover=7")
 
-                'tui "set modal;control=form1"
                 tui "set focus;control=check1"
                 '---------------------------------------
             Case label1
@@ -121,9 +119,8 @@ Do
             Case viewmenusubs
                 tui "reset"
             Case Else
-                temp$ = "get control=" + Str$(tui("control")) + ";name"
-                tui temp$
-                tui "set control=statusbar;caption= This control has no action assigned to it: " + temp$
+                tempStr = tuiGet$("get control=" + Str$(tui("control")) + ";name")
+                tui "set control=statusbar;caption= This control has no action assigned to it: " + tempStr
         End Select
     End If
     _Display
@@ -133,10 +130,20 @@ Loop
 oops:
 Resume Next
 
+' === WRAPPERS & METHODS ===
+
 Sub tui (action As String)
     Dim As Long result
     result = tui&(action)
 End Sub
+
+Function tuiGet$ (action As String)
+    Dim tempAction As String
+    Dim result As Long
+    tempAction = action
+    result = tui&(tempAction)
+    tuiGet$ = tempAction
+End Function
 
 Function tui& (action As String) Static
     Type newControl
@@ -1279,4 +1286,3 @@ Function timeElapsedSince! (startTime!)
     If startTime! > Timer Then startTime! = startTime! - 86400
     timeElapsedSince! = Timer - startTime!
 End Function
-
