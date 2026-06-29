@@ -1,9 +1,10 @@
+$Debug
 Option _Explicit
 On Error GoTo oops
 
 $Resize:On
 Dim As String tempStr
-Dim As Long form, closebutton, button1, check1, label1, label2, label3
+Dim As Long form, closebutton, button1, check1, label1, label2, label3, textbox1, textbox2, textarea1, listbox1
 Dim As Long filemenu, filemenunew, filemenuexit
 Dim As Long editmenu, editmenuundo, editmenuredo, editmenuproperties
 Dim As Long viewmenu, viewmenusubs, viewmenulinenumbers, viewmenuwarnings
@@ -46,7 +47,7 @@ tui "add type=menuitem;name=viewmenubgdark;caption=&Dark side of the moon"
 
 Dim As _Byte updateLabel
 Dim As Long i
-Dim As Integer newWidth, newHeight ' <-- Scopes moved outside loop
+Dim As Integer newWidth, newHeight
 Dim As _Byte willResize
 
 updateLabel = -1
@@ -89,19 +90,29 @@ Do
             Case button1
                 If tui("get control=editmenu;disabled") Then
                     tui "set control=editmenu;disabled=false"
+                    tui "set control=statusbar;caption= Edit menu enabled."
                 Else
                     tui "set control=editmenu;disabled=true"
+                    tui "set control=statusbar;caption= Edit menu disabled."
                 End If
             Case check1
                 updateLabel = -1
+            Case listbox1
+                tempStr = tuiGet$("get control=listbox1;selected")
+                tui "set control=statusbar;caption= Selected: " + tempStr
             Case filemenuexit
                 System
             Case closebutton
                 tui "delete control=form1"
+                form = 0
             Case filemenunew
                 '---------------------------------------
+                If form <> 0 Then
+                    tui "set control=statusbar;caption= Form already displayed."
+                    Exit Case
+                End If
                 tui "set defaults;parent=0"
-                form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=50;h=11")
+                form = tui("add type=form;name=form1;caption=Hello, world!;align=center;fghover=16;bghover=7;w=60;h=17")
 
                 tui "set defaults;parent=form1"
                 closebutton = tui("add type=button;name=closebutton;caption=[X];fg=20;fghover=28;y=0;align=top-right;shadow=false;canreceivefocus=false")
@@ -109,7 +120,12 @@ Do
                 label1 = tui("add type=label;name=label1;caption=Nothing to show;x=2;y=3;bghover=-1;special=autosize")
                 label2 = tui("add type=label;name=label2;caption=Hover:;x=2;y=4;bghover=-1;special=autosize")
                 label3 = tui("add type=label;name=label3;caption=Focus:;x=2;y=5;bghover=-1;special=autosize")
-                button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=8;w=20;fg=31;bg=9;fghover=16;bghover=7")
+                textbox1 = tui("add type=textbox;name=textbox1;text=Edit me...;x=2;y=6;w=44")
+                textbox2 = tui("add type=textbox;name=textbox2;text=Custom colors;x=2;y=7;w=44;fg=18;bg=8;fghover=31;bghover=9")
+                textarea1 = tui("add type=textarea;name=textarea1;text=Line 1 of text.\nLine 2 of text.\nLine 3 of text.;x=2;y=8;w=26;h=4;fg=15;bg=0;fghover=15;bghover=4")
+                tui "add type=label;name=listboxlabel;caption=&List:;x=29;y=2;special=autosize"
+                listbox1 = tui("add type=listbox;name=listbox1;text=Apple\nBanana\nCherry\n-\nDate\nElderberry\nFig\nGrape;x=29;y=3;w=18;h=7;value=1;fg=31;bg=9;fghover=0;bghover=7")
+                button1 = tui("add type=button;name=button1;caption=Click &me;align=center;y=13;w=20;fg=31;bg=9;fghover=16;bghover=7")
 
                 tui "set focus;control=check1"
                 '---------------------------------------
@@ -147,8 +163,9 @@ End Function
 
 Function tui& (action As String) Static
     Type newControl
-        As Long type, parent, x, y, w, h, value, keybind
+        As Long type, parent, x, y, w, h, value, keybind, cursorPos, selectionStart, selectionEnd, scrollTop
         As Integer fg, bg, fghover, bghover, fghotkey, hotkeypos
+        As _Byte hasFg, hasBg, hasFghover, hasBghover
         As String name, special, caption, text, hotkey
         As _Byte canReceiveFocus, active, disabled, hidden, shadow
     End Type
@@ -158,11 +175,14 @@ Function tui& (action As String) Static
     Dim As Long menuPanel(100), totalMenuPanels, totalMenuPanelItems
     Dim As String menuPanelParents
     Dim As Long x, y, mx, my, oldmx, oldmy, mb, hover, mouseDownOn, clicked, lastClickedControl, focus, prevFocus
-    Dim As Long mouseDownX, mouseDownY, hotkeyX, hotkeyY
+    Dim As Long mouseDownX, mouseDownY, hotkeyX, hotkeyY, cursorX, displayStart, lineStart, lineEnd, lineNum, lineCount, row, listTextWidth
+    Dim As Long selLo, selHi, visibleLeft, visibleRight, selectionPos, selectionLen, prevLineStart, prevLineLen, nextLineStart, nextLineEnd, nextLineLen
+    Dim As Long textWidth, visualLine, totalVisualLines, targetVisualLine, scrollbarTop, scrollbarThumb, scrollbarTrack, mouseTextCol, segmentAdvance
+    Dim As String listItemText
     Dim As Integer prevFG, prevBG
     Dim As _Byte setup, mouseDown, fetchMouse, showFocus, fetchedKeyboard
     Dim As _Byte draggingForm, highIntensity, captionSet, hasMenuBar
-    Dim As _Byte keyboardControl, showHotKey, prevShowHotKey, willActivateMenu
+    Dim As _Byte keyboardControl, showHotKey, prevShowHotKey, willActivateMenu, shiftDown
 
     If setup = 0 Then
         ReDim control(100) As newControl
@@ -198,7 +218,7 @@ Function tui& (action As String) Static
 
             If passed(action, "type") Then control(this).type = controlType(getParam(action, "type"))
             Select Case getParam(action, "type")
-                Case "button", "checkbox", "textbox"
+                Case "button", "checkbox", "textbox", "textarea", "listbox"
                     control(this).canReceiveFocus = -1
             End Select
 
@@ -223,7 +243,27 @@ Function tui& (action As String) Static
                     End If
                 End If
             End If
-            If passed(action, "text") Then control(this).text = getParam(action, "text")
+            If passed(action, "text") Then
+                temp = getParam(action, "text")
+                temp = Replace$(temp, "\r\n", Chr$(10))
+                temp = Replace$(temp, "\r", Chr$(10))
+                temp = Replace$(temp, "\n", Chr$(10))
+                control(this).text = temp
+                If control(this).type = controlType("listbox") Then
+                    control(this).scrollTop = 1
+                Else
+                    control(this).cursorPos = Len(control(this).text) + 1
+                    control(this).selectionStart = control(this).cursorPos
+                    control(this).selectionEnd = control(this).cursorPos
+                    control(this).scrollTop = 1
+                End If
+            End If
+            If control(this).type = controlType("textbox") Or control(this).type = controlType("textarea") Then
+                If control(this).cursorPos < 1 Then control(this).cursorPos = 1
+                If control(this).selectionStart < 1 Then control(this).selectionStart = 1
+                If control(this).selectionEnd < 1 Then control(this).selectionEnd = 1
+                If control(this).scrollTop < 1 Then control(this).scrollTop = 1
+            End If
 
             If passed(action, "special") Then control(this).special = getParam(action, "special")
             Select Case control(this).special
@@ -244,6 +284,8 @@ Function tui& (action As String) Static
 
             If passed(action, "h") Then
                 control(this).h = Val(getParam(action, "h"))
+            ElseIf control(this).type = controlType("listbox") Then
+                control(this).h = 7
             Else
                 control(this).h = 1
             End If
@@ -315,21 +357,34 @@ Function tui& (action As String) Static
                 control(this).bg = control(control(this).parent).bg
                 control(this).fghover = control(control(this).parent).fghover
                 control(this).bghover = control(control(this).parent).bghover
+                control(this).hasFg = -1
+                control(this).hasBg = -1
+                control(this).hasFghover = -1
+                control(this).hasBghover = -1
             ElseIf result = "defaults" Then
                 control(this).fg = defaults.fg
                 control(this).bg = defaults.bg
                 control(this).fghover = defaults.fghover
                 control(this).bghover = defaults.bghover
                 control(this).fghotkey = defaults.fghotkey
+                control(this).hasFg = -1
+                control(this).hasBg = -1
+                control(this).hasFghover = -1
+                control(this).hasBghover = -1
             End If
 
-            If passed(action, "fg") Then control(this).fg = Val(getParam(action, "fg"))
-            If passed(action, "bg") Then control(this).bg = Val(getParam(action, "bg"))
-            If passed(action, "fghover") Then control(this).fghover = Val(getParam(action, "fghover"))
-            If passed(action, "bghover") Then control(this).bghover = Val(getParam(action, "bghover"))
+            If passed(action, "fg") Then control(this).fg = Val(getParam(action, "fg")): control(this).hasFg = -1
+            If passed(action, "bg") Then control(this).bg = Val(getParam(action, "bg")): control(this).hasBg = -1
+            If passed(action, "fghover") Then control(this).fghover = Val(getParam(action, "fghover")): control(this).hasFghover = -1
+            If passed(action, "bghover") Then control(this).bghover = Val(getParam(action, "bghover")): control(this).hasBghover = -1
 
             If passed(action, "value") Then control(this).value = Val(getParam(action, "value"))
             If passed(action, "keybind") Then control(this).keybind = Val(getParam(action, "keybind"))
+
+            If control(this).type = controlType("listbox") Then
+                If control(this).scrollTop < 1 Then control(this).scrollTop = 1
+                If control(this).value < 1 And Len(control(this).text) > 0 Then control(this).value = 1
+            End If
 
             If control(this).type = controlType("menubar") Then
                 If hasMenuBar = 0 Then
@@ -364,6 +419,7 @@ Function tui& (action As String) Static
                 mb = _MouseButton(1)
                 clicked = 0
                 hover = 0
+                k = 0
                 fetchedKeyboard = 0
                 prevFG = _DefaultColor
                 prevBG = _BackgroundColor
@@ -483,15 +539,316 @@ Function tui& (action As String) Static
                             hotkeyX = x + Len(temp) + control(i).hotkeypos - 1
                             hotkeyY = y
                             If showFocus And focus = i Then Locate y, x + 1, 1
+                        Case controlType("listbox")
+                            Dim As Integer listFg, listBg, listSelFg, listSelBg
+                            temp = control(i).text
+                            GoSub countListboxItems
+                            If lineCount < 0 Then lineCount = 0
+                            If control(i).value > lineCount Then control(i).value = lineCount
+                            If control(i).value < 1 And lineCount > 0 Then control(i).value = 1
+                            If control(i).scrollTop < 1 Then control(i).scrollTop = 1
+                            this = i
+                            GoSub listboxSyncScroll
+                            listTextWidth = control(i).w
+                            If lineCount > control(i).h - 2 Then listTextWidth = control(i).w - 1
+                            If listTextWidth < 1 Then listTextWidth = 1
+                            If focus = i Then
+                                listFg = 31
+                                listBg = 8
+                                listSelFg = 0
+                                listSelBg = 7
+                                If control(i).hasFghover Then listFg = control(i).fghover
+                                If control(i).hasBghover Then listBg = control(i).bghover
+                                If control(i).hasFg Then listSelFg = control(i).fg
+                                If control(i).hasBg Then listSelBg = control(i).bg
+                            Else
+                                listFg = 7
+                                listBg = 8
+                                listSelFg = 0
+                                listSelBg = 7
+                                If control(i).hasFg Then listFg = control(i).fg
+                                If control(i).hasBg Then listBg = control(i).bg
+                            End If
+                            box x, y, control(i).w, control(i).h
+                            row = 1
+                            Do While row <= control(i).h - 2
+                                lineNum = control(i).scrollTop + row - 1
+                                If lineNum > lineCount Then
+                                    tuiSetColor listFg, listBg
+                                    _PrintString (x + 1, y + row), Space$(listTextWidth - 2)
+                                Else
+                                    GoSub getListboxItem
+                                    If listItemText = "-" Then
+                                        tuiSetColor listFg, listBg
+                                        _PrintString (x, y + row), Chr$(195) + String$(listTextWidth - 1, 196) + Chr$(180)
+                                    Else
+                                        If lineNum = control(i).value Then
+                                            tuiSetColor listSelFg, listSelBg
+                                        Else
+                                            tuiSetColor listFg, listBg
+                                        End If
+                                        listItemText = " " + listItemText
+                                        If Len(listItemText) > listTextWidth - 2 Then listItemText = Left$(listItemText, listTextWidth - 3) + Chr$(26)
+                                        listItemText = listItemText + Space$(listTextWidth - 2)
+                                        listItemText = Left$(listItemText, listTextWidth - 2)
+                                        _PrintString (x + 1, y + row), listItemText
+                                    End If
+                                End If
+                                row = row + 1
+                            Loop
+                            If lineCount > control(i).h - 2 Then
+                                scrollbarTrack = control(i).h - 2
+                                If scrollbarTrack < 1 Then scrollbarTrack = 1
+                                scrollbarThumb = (scrollbarTrack * scrollbarTrack) \ lineCount
+                                If scrollbarThumb < 1 Then scrollbarThumb = 1
+                                If scrollbarThumb > scrollbarTrack Then scrollbarThumb = scrollbarTrack
+                                If lineCount > scrollbarTrack Then
+                                    scrollbarTop = ((control(i).scrollTop - 1) * (scrollbarTrack - scrollbarThumb)) \ (lineCount - scrollbarTrack) + 1
+                                Else
+                                    scrollbarTop = 1
+                                End If
+                                For row = 1 To scrollbarTrack
+                                    If row >= scrollbarTop And row < scrollbarTop + scrollbarThumb Then
+                                        _PrintString (x + control(i).w - 1, y + row), Chr$(219)
+                                    Else
+                                        _PrintString (x + control(i).w - 1, y + row), Chr$(176)
+                                    End If
+                                Next
+                            End If
+                            If focus = i And control(i).value >= control(i).scrollTop And control(i).value <= control(i).scrollTop + control(i).h - 3 Then
+                                Locate y + control(i).value - control(i).scrollTop + 1, x + 2, 1
+                            End If
                         Case controlType("label")
                             _PrintString (x, y), Space$(control(i).w)
                             _PrintString (x, y), Left$(control(i).caption, control(i).w)
                             hotkeyX = x + control(i).hotkeypos - 1
                             hotkeyY = y
-                        Case controlType("textbox")
-                            If focus = i And fetchedKeyboard = 0 Then
-                                k = _KeyHit 'read keyboard input for textbox control
-                                fetchedKeyboard = -1
+                        Case controlType("textbox"), controlType("textarea")
+                            Dim As Integer textFg, textBg
+                            Dim As Long cursorLine, cursorCol, visibleLineStart, visibleLineEnd, cursorY, lineLen, segmentStart, segmentLen, wrapPos, rawSegmentStart, rawSegmentEnd, rawSegmentLen
+                            Dim As String lineText, displayText, rawLineText, remaining
+                            If focus = i Then
+                                textFg = 15
+                                textBg = 8
+                                If control(i).hasFghover Then textFg = control(i).fghover
+                                If control(i).hasBghover Then textBg = control(i).bghover
+                                If Not control(i).hasFghover And control(i).hasFg Then textFg = control(i).fg
+                                If Not control(i).hasBghover And control(i).hasBg Then textBg = control(i).bg
+                            Else
+                                textFg = 7
+                                textBg = 8
+                                If control(i).hasFg Then textFg = control(i).fg
+                                If control(i).hasBg Then textBg = control(i).bg
+                            End If
+                            tuiSetColor textFg, textBg
+                            If control(i).type = controlType("textbox") Then
+                                _PrintString (x, y), Space$(control(i).w)
+                                temp = control(i).text
+                                If control(i).cursorPos < 1 Then control(i).cursorPos = 1
+                                If control(i).cursorPos > Len(temp) + 1 Then control(i).cursorPos = Len(temp) + 1
+                                displayStart = 1
+                                If Len(temp) > control(i).w Then
+                                    displayStart = control(i).cursorPos - control(i).w + 1
+                                    If displayStart < 1 Then displayStart = 1
+                                    If displayStart + control(i).w - 1 > Len(temp) Then displayStart = Len(temp) - control(i).w + 1
+                                End If
+                                _PrintString (x, y), Mid$(temp, displayStart, control(i).w)
+                                If focus = i And control(i).selectionStart <> control(i).selectionEnd Then
+                                    selLo = control(i).selectionStart
+                                    selHi = control(i).selectionEnd
+                                    If selLo > selHi Then
+                                        selectionPos = selLo
+                                        selLo = selHi
+                                        selHi = selectionPos
+                                    End If
+                                    If selLo < 1 Then selLo = 1
+                                    If selHi > Len(temp) + 1 Then selHi = Len(temp) + 1
+                                    visibleLeft = selLo
+                                    visibleRight = selHi - 1
+                                    If visibleLeft < displayStart Then visibleLeft = displayStart
+                                    If visibleRight > displayStart + control(i).w - 1 Then visibleRight = displayStart + control(i).w - 1
+                                    If visibleLeft <= visibleRight Then
+                                        selectionLen = visibleRight - visibleLeft + 1
+                                        If focus = i Then
+                                            tuiSetColor 0, 7
+                                        Else
+                                            tuiSetColor 8, 7
+                                        End If
+                                        _PrintString (x + visibleLeft - displayStart, y), Mid$(temp, visibleLeft, selectionLen)
+                                    End If
+                                End If
+                                If focus = i Then
+                                    cursorX = x + control(i).cursorPos - displayStart
+                                    If cursorX < x Then cursorX = x
+                                    If cursorX > x + control(i).w Then cursorX = x + control(i).w
+                                    Locate y, cursorX, 1
+                                End If
+                            Else
+                                temp = control(i).text
+                                If control(i).cursorPos < 1 Then control(i).cursorPos = 1
+                                If control(i).cursorPos > Len(temp) + 1 Then control(i).cursorPos = Len(temp) + 1
+                                If control(i).scrollTop < 1 Then control(i).scrollTop = 1
+                                textWidth = control(i).w - 1
+                                If textWidth < 1 Then textWidth = 1
+
+                                cursorLine = 1
+                                cursorCol = 1
+                                visualLine = 1
+                                lineStart = 1
+                                Do
+                                    lineEnd = InStr(lineStart, temp, Chr$(10))
+                                    If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                    rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                    lineLen = Len(rawLineText)
+                                    If lineLen = 0 Then
+                                        If control(i).cursorPos = lineStart Then
+                                            cursorLine = visualLine
+                                            cursorCol = 1
+                                        End If
+                                        visualLine = visualLine + 1
+                                    Else
+                                        segmentStart = 1
+                                        While segmentStart <= lineLen
+                                            remaining = Mid$(rawLineText, segmentStart)
+                                            If Len(remaining) <= textWidth Then
+                                                segmentLen = Len(remaining)
+                                                segmentAdvance = segmentLen
+                                            Else
+                                                wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                If wrapPos <= 1 Then
+                                                    segmentLen = textWidth
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    segmentLen = wrapPos - 1
+                                                    segmentAdvance = wrapPos
+                                                End If
+                                            End If
+                                            rawSegmentStart = lineStart + segmentStart - 1
+                                            rawSegmentEnd = rawSegmentStart + segmentLen - 1
+                                            If control(i).cursorPos >= rawSegmentStart And control(i).cursorPos <= rawSegmentEnd + 1 Then
+                                                cursorLine = visualLine
+                                                cursorCol = control(i).cursorPos - rawSegmentStart + 1
+                                                If cursorCol < 1 Then cursorCol = 1
+                                                If cursorCol > segmentLen + 1 Then cursorCol = segmentLen + 1
+                                            End If
+                                            visualLine = visualLine + 1
+                                            segmentStart = segmentStart + segmentAdvance
+                                        Wend
+                                    End If
+                                    If lineEnd > Len(temp) Then Exit Do
+                                    lineStart = lineEnd + 1
+                                Loop
+                                totalVisualLines = visualLine - 1
+                                If totalVisualLines < 1 Then totalVisualLines = 1
+                                If cursorLine < control(i).scrollTop Then control(i).scrollTop = cursorLine
+                                If cursorLine > control(i).scrollTop + control(i).h - 1 Then control(i).scrollTop = cursorLine - control(i).h + 1
+                                If control(i).scrollTop > totalVisualLines - control(i).h + 1 Then control(i).scrollTop = totalVisualLines - control(i).h + 1
+                                If control(i).scrollTop < 1 Then control(i).scrollTop = 1
+
+                                lineStart = 1
+                                row = 1
+                                visualLine = 1
+                                Do
+                                    If lineStart > Len(temp) + 1 Then Exit Do
+                                    lineEnd = InStr(lineStart, temp, Chr$(10))
+                                    If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                    rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                    lineLen = Len(rawLineText)
+                                    If lineLen = 0 Then
+                                        If visualLine >= control(i).scrollTop And row <= control(i).h Then
+                                            _PrintString (x, y + row - 1), Space$(textWidth)
+                                            row = row + 1
+                                        End If
+                                        visualLine = visualLine + 1
+                                    Else
+                                        segmentStart = 1
+                                        While segmentStart <= lineLen
+                                            remaining = Mid$(rawLineText, segmentStart)
+                                            If Len(remaining) <= textWidth Then
+                                                segmentLen = Len(remaining)
+                                                segmentAdvance = segmentLen
+                                            Else
+                                                wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                If wrapPos <= 1 Then
+                                                    segmentLen = textWidth
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    segmentLen = wrapPos - 1
+                                                    segmentAdvance = wrapPos
+                                                End If
+                                            End If
+                                            If visualLine >= control(i).scrollTop And row <= control(i).h Then
+                                                displayText = Mid$(rawLineText, segmentStart, segmentLen)
+                                                _PrintString (x, y + row - 1), displayText + Space$(textWidth - Len(displayText))
+                                                If focus = i And control(i).selectionStart <> control(i).selectionEnd Then
+                                                    selLo = control(i).selectionStart
+                                                    selHi = control(i).selectionEnd
+                                                    If selLo > selHi Then
+                                                        selectionPos = selLo
+                                                        selLo = selHi
+                                                        selHi = selectionPos
+                                                    End If
+                                                    rawSegmentStart = lineStart + segmentStart - 1
+                                                    rawSegmentEnd = rawSegmentStart + segmentLen - 1
+                                                    If selHi - 1 >= rawSegmentStart And selLo <= rawSegmentEnd Then
+                                                        visibleLeft = selLo
+                                                        If visibleLeft < rawSegmentStart Then visibleLeft = rawSegmentStart
+                                                        visibleRight = selHi - 1
+                                                        If visibleRight > rawSegmentEnd Then visibleRight = rawSegmentEnd
+                                                        visibleLeft = visibleLeft - rawSegmentStart + 1
+                                                        visibleRight = visibleRight - rawSegmentStart + 1
+                                                        If visibleLeft < 1 Then visibleLeft = 1
+                                                        If visibleRight > Len(displayText) Then visibleRight = Len(displayText)
+                                                        If visibleLeft <= visibleRight Then
+                                                            selectionLen = visibleRight - visibleLeft + 1
+                                                            tuiSetColor 0, 7
+                                                            _PrintString (x + visibleLeft - 1, y + row - 1), Mid$(displayText, visibleLeft, selectionLen)
+                                                            tuiSetColor textFg, textBg
+                                                        End If
+                                                    End If
+                                                End If
+                                                row = row + 1
+                                            End If
+                                            visualLine = visualLine + 1
+                                            segmentStart = segmentStart + segmentAdvance
+                                        Wend
+                                    End If
+                                    If row > control(i).h Then Exit Do
+                                    If lineEnd > Len(temp) Then Exit Do
+                                    lineStart = lineEnd + 1
+                                Loop
+                                While row <= control(i).h
+                                    _PrintString (x, y + row - 1), Space$(textWidth)
+                                    row = row + 1
+                                Wend
+
+                                If totalVisualLines > control(i).h Then
+                                    scrollbarTrack = control(i).h
+                                    scrollbarThumb = (control(i).h * control(i).h) \ totalVisualLines
+                                    If scrollbarThumb < 1 Then scrollbarThumb = 1
+                                    If scrollbarThumb > control(i).h Then scrollbarThumb = control(i).h
+                                    scrollbarTop = ((control(i).scrollTop - 1) * (scrollbarTrack - scrollbarThumb)) \ (totalVisualLines - control(i).h) + 1
+                                Else
+                                    scrollbarThumb = control(i).h
+                                    scrollbarTop = 1
+                                End If
+                                For row = 1 To control(i).h
+                                    If row >= scrollbarTop And row < scrollbarTop + scrollbarThumb Then
+                                        _PrintString (x + control(i).w - 1, y + row - 1), Chr$(219)
+                                    Else
+                                        _PrintString (x + control(i).w - 1, y + row - 1), Chr$(176)
+                                    End If
+                                Next
+
+                                If focus = i Then
+                                    cursorY = y + cursorLine - control(i).scrollTop
+                                    cursorX = x + cursorCol - 1
+                                    If cursorX < x Then cursorX = x
+                                    If cursorX > x + textWidth - 1 Then cursorX = x + textWidth - 1
+                                    If cursorY < y Then cursorY = y
+                                    If cursorY > y + control(i).h - 1 Then cursorY = y + control(i).h - 1
+                                    Locate cursorY, cursorX, 1
+                                End If
                             End If
                     End Select
 
@@ -633,6 +990,11 @@ Function tui& (action As String) Static
 
                 Color prevFG, prevBG
 
+                If fetchedKeyboard = 0 And k = 0 Then
+                    k = _KeyHit
+                    fetchedKeyboard = -1
+                End If
+
                 If k Then GoSub enableKeyboardControl
                 Select EveryCase k
                     Case -9, -25
@@ -652,6 +1014,33 @@ Function tui& (action As String) Static
                         End If
                     Case -13
                         Select Case control(focus).type
+                            Case controlType("textarea")
+                                If Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 Then
+                                    temp = control(focus).text
+                                    If control(focus).selectionStart <> control(focus).selectionEnd Then
+                                        selLo = control(focus).selectionStart
+                                        selHi = control(focus).selectionEnd
+                                        If selLo > selHi Then selLo = selLo + selHi: selHi = selLo - selHi: selLo = selLo - selHi
+                                        control(focus).text = Left$(temp, selLo - 1) + Mid$(temp, selHi)
+                                        control(focus).cursorPos = selLo
+                                    End If
+                                    control(focus).text = Left$(control(focus).text, control(focus).cursorPos - 1) + Chr$(10) + Mid$(control(focus).text, control(focus).cursorPos)
+                                    control(focus).cursorPos = control(focus).cursorPos + 1
+                                    control(focus).selectionStart = control(focus).cursorPos
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                    k = 0
+                                End If
+                            Case controlType("textbox")
+                                this = focus
+                                Do
+                                    focus = focus + 1
+                                    If focus > UBound(control) Then focus = 1
+                                    If focus = this Then Exit Do
+                                Loop While control(focus).canReceiveFocus = 0
+                                k = 0
+                            Case controlType("listbox")
+                                If control(focus).disabled = 0 Then clicked = focus
+                                k = 0
                             Case controlType("button"), controlType("menuitem")
                                 If control(focus).disabled = 0 Then clicked = focus Else Exit Case
                                 If control(focus).type = controlType("menuitem") Then
@@ -674,6 +1063,8 @@ Function tui& (action As String) Static
                             Case controlType("checkbox")
                                 control(focus).value = Not control(focus).value
                                 clicked = focus
+                            Case controlType("listbox")
+                                If control(focus).disabled = 0 Then clicked = focus
                         End Select
                     Case 27
                         If totalMenuPanels Then focus = control(menuPanel(totalMenuPanels)).parent: GoSub closeMenuPanel
@@ -693,6 +1084,117 @@ Function tui& (action As String) Static
                                         Exit Do
                                     End If
                                 Loop
+                            Case controlType("listbox")
+                                temp = control(focus).text
+                                GoSub countListboxItems
+                                If lineCount > 0 And control(focus).value > 1 Then
+                                    control(focus).value = control(focus).value - 1
+                                    this = focus
+                                    GoSub listboxSyncScroll
+                                End If
+                                k = 0
+                            Case controlType("textbox"), controlType("textarea")
+                                shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                                If control(focus).type = controlType("textarea") Then
+                                    temp = control(focus).text
+                                    cursorLine = 1
+                                    cursorCol = 1
+                                    textWidth = control(focus).w - 1
+                                    If textWidth < 1 Then textWidth = 1
+                                    visualLine = 1
+                                    lineStart = 1
+                                    Do
+                                        lineEnd = InStr(lineStart, temp, Chr$(10))
+                                        If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                        rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                        lineLen = Len(rawLineText)
+                                        If lineLen = 0 Then
+                                            If control(focus).cursorPos = lineStart Then cursorLine = visualLine: cursorCol = 1
+                                            visualLine = visualLine + 1
+                                        Else
+                                            segmentStart = 1
+                                            While segmentStart <= lineLen
+                                                remaining = Mid$(rawLineText, segmentStart)
+                                                If Len(remaining) <= textWidth Then
+                                                    segmentLen = Len(remaining)
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                    If wrapPos <= 1 Then
+                                                        segmentLen = textWidth
+                                                        segmentAdvance = segmentLen
+                                                    Else
+                                                        segmentLen = wrapPos - 1
+                                                        segmentAdvance = wrapPos
+                                                    End If
+                                                End If
+                                                rawSegmentStart = lineStart + segmentStart - 1
+                                                rawSegmentEnd = rawSegmentStart + segmentLen - 1
+                                                If control(focus).cursorPos >= rawSegmentStart And control(focus).cursorPos <= rawSegmentEnd + 1 Then
+                                                    cursorLine = visualLine
+                                                    cursorCol = control(focus).cursorPos - rawSegmentStart + 1
+                                                    If cursorCol < 1 Then cursorCol = 1
+                                                    If cursorCol > segmentLen + 1 Then cursorCol = segmentLen + 1
+                                                End If
+                                                visualLine = visualLine + 1
+                                                segmentStart = segmentStart + segmentAdvance
+                                            Wend
+                                        End If
+                                        If lineEnd > Len(temp) Then Exit Do
+                                        lineStart = lineEnd + 1
+                                    Loop
+                                    totalVisualLines = visualLine - 1
+                                    targetVisualLine = cursorLine - 1
+                                    If targetVisualLine < 1 Then targetVisualLine = 1
+                                    visualLine = 1
+                                    lineStart = 1
+                                    Do
+                                        lineEnd = InStr(lineStart, temp, Chr$(10))
+                                        If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                        rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                        lineLen = Len(rawLineText)
+                                        If lineLen = 0 Then
+                                            If visualLine = targetVisualLine Then control(focus).cursorPos = lineStart: Exit Do
+                                            visualLine = visualLine + 1
+                                        Else
+                                            segmentStart = 1
+                                            While segmentStart <= lineLen
+                                                remaining = Mid$(rawLineText, segmentStart)
+                                                If Len(remaining) <= textWidth Then
+                                                    segmentLen = Len(remaining)
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                    If wrapPos <= 1 Then
+                                                        segmentLen = textWidth
+                                                        segmentAdvance = segmentLen
+                                                    Else
+                                                        segmentLen = wrapPos - 1
+                                                        segmentAdvance = wrapPos
+                                                    End If
+                                                End If
+                                                If visualLine = targetVisualLine Then
+                                                    control(focus).cursorPos = lineStart + segmentStart + cursorCol - 2
+                                                    If control(focus).cursorPos > lineStart + segmentStart + segmentLen - 1 Then control(focus).cursorPos = lineStart + segmentStart + segmentLen - 1
+                                                    If cursorCol > segmentLen Then control(focus).cursorPos = lineStart + segmentStart + segmentLen - 1
+                                                    If control(focus).cursorPos < lineStart + segmentStart - 1 Then control(focus).cursorPos = lineStart + segmentStart - 1
+                                                    Exit Do
+                                                End If
+                                                visualLine = visualLine + 1
+                                                segmentStart = segmentStart + segmentAdvance
+                                            Wend
+                                        End If
+                                        If lineEnd > Len(temp) Then Exit Do
+                                        lineStart = lineEnd + 1
+                                    Loop
+                                End If
+                                If shiftDown Then
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                Else
+                                    control(focus).selectionStart = control(focus).cursorPos
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                End If
+                                k = 0
                         End Select
                     Case 20480 'down
                         Select Case control(focus).type
@@ -709,6 +1211,118 @@ Function tui& (action As String) Static
                                         Exit Do
                                     End If
                                 Loop
+                            Case controlType("listbox")
+                                temp = control(focus).text
+                                GoSub countListboxItems
+                                If lineCount > 0 And control(focus).value < lineCount Then
+                                    control(focus).value = control(focus).value + 1
+                                    this = focus
+                                    GoSub listboxSyncScroll
+                                End If
+                                k = 0
+                            Case controlType("textbox"), controlType("textarea")
+                                shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                                If control(focus).type = controlType("textarea") Then
+                                    temp = control(focus).text
+                                    cursorLine = 1
+                                    cursorCol = 1
+                                    textWidth = control(focus).w - 1
+                                    If textWidth < 1 Then textWidth = 1
+                                    visualLine = 1
+                                    lineStart = 1
+                                    Do
+                                        lineEnd = InStr(lineStart, temp, Chr$(10))
+                                        If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                        rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                        lineLen = Len(rawLineText)
+                                        If lineLen = 0 Then
+                                            If control(focus).cursorPos = lineStart Then cursorLine = visualLine: cursorCol = 1
+                                            visualLine = visualLine + 1
+                                        Else
+                                            segmentStart = 1
+                                            While segmentStart <= lineLen
+                                                remaining = Mid$(rawLineText, segmentStart)
+                                                If Len(remaining) <= textWidth Then
+                                                    segmentLen = Len(remaining)
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                    If wrapPos <= 1 Then
+                                                        segmentLen = textWidth
+                                                        segmentAdvance = segmentLen
+                                                    Else
+                                                        segmentLen = wrapPos - 1
+                                                        segmentAdvance = wrapPos
+                                                    End If
+                                                End If
+                                                rawSegmentStart = lineStart + segmentStart - 1
+                                                rawSegmentEnd = rawSegmentStart + segmentLen - 1
+                                                If control(focus).cursorPos >= rawSegmentStart And control(focus).cursorPos <= rawSegmentEnd + 1 Then
+                                                    cursorLine = visualLine
+                                                    cursorCol = control(focus).cursorPos - rawSegmentStart + 1
+                                                    If cursorCol < 1 Then cursorCol = 1
+                                                    If cursorCol > segmentLen + 1 Then cursorCol = segmentLen + 1
+                                                End If
+                                                visualLine = visualLine + 1
+                                                segmentStart = segmentStart + segmentAdvance
+                                            Wend
+                                        End If
+                                        If lineEnd > Len(temp) Then Exit Do
+                                        lineStart = lineEnd + 1
+                                    Loop
+                                    totalVisualLines = visualLine - 1
+                                    If totalVisualLines < 1 Then totalVisualLines = 1
+                                    targetVisualLine = cursorLine + 1
+                                    If targetVisualLine > totalVisualLines Then targetVisualLine = totalVisualLines
+                                    visualLine = 1
+                                    lineStart = 1
+                                    Do
+                                        lineEnd = InStr(lineStart, temp, Chr$(10))
+                                        If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                        rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                        lineLen = Len(rawLineText)
+                                        If lineLen = 0 Then
+                                            If visualLine = targetVisualLine Then control(focus).cursorPos = lineStart: Exit Do
+                                            visualLine = visualLine + 1
+                                        Else
+                                            segmentStart = 1
+                                            While segmentStart <= lineLen
+                                                remaining = Mid$(rawLineText, segmentStart)
+                                                If Len(remaining) <= textWidth Then
+                                                    segmentLen = Len(remaining)
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                    If wrapPos <= 1 Then
+                                                        segmentLen = textWidth
+                                                        segmentAdvance = segmentLen
+                                                    Else
+                                                        segmentLen = wrapPos - 1
+                                                        segmentAdvance = wrapPos
+                                                    End If
+                                                End If
+                                                If visualLine = targetVisualLine Then
+                                                    control(focus).cursorPos = lineStart + segmentStart + cursorCol - 2
+                                                    If control(focus).cursorPos > lineStart + segmentStart + segmentLen - 1 Then control(focus).cursorPos = lineStart + segmentStart + segmentLen - 1
+                                                    If cursorCol > segmentLen Then control(focus).cursorPos = lineStart + segmentStart + segmentLen - 1
+                                                    If control(focus).cursorPos < lineStart + segmentStart - 1 Then control(focus).cursorPos = lineStart + segmentStart - 1
+                                                    Exit Do
+                                                End If
+                                                visualLine = visualLine + 1
+                                                segmentStart = segmentStart + segmentAdvance
+                                            Wend
+                                        End If
+                                        If lineEnd > Len(temp) Then Exit Do
+                                        lineStart = lineEnd + 1
+                                    Loop
+                                End If
+                                If shiftDown Then
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                Else
+                                    control(focus).selectionStart = control(focus).cursorPos
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                End If
+                                k = 0
                         End Select
                     Case 19200 'left
                         Select EveryCase control(focus).type
@@ -733,9 +1347,19 @@ Function tui& (action As String) Static
                                         Exit Do
                                     End If
                                 Loop
+                            Case controlType("textbox"), controlType("textarea")
+                                shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                                If control(focus).cursorPos > 1 Then control(focus).cursorPos = control(focus).cursorPos - 1
+                                If shiftDown Then
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                Else
+                                    control(focus).selectionStart = control(focus).cursorPos
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                End If
+                                k = 0
                         End Select
                     Case 19712 'right
-                        Select Case control(focus).type
+                        Select EveryCase control(focus).type
                             Case controlType("menubar"), controlType("menuitem")
                                 If control(focus).type = controlType("menuitem") Then
                                     If control(focus).special = "submenu" Then
@@ -756,9 +1380,33 @@ Function tui& (action As String) Static
                                         Exit Do
                                     End If
                                 Loop
+                            Case controlType("textbox"), controlType("textarea")
+                                shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                                If control(focus).cursorPos <= Len(control(focus).text) Then control(focus).cursorPos = control(focus).cursorPos + 1
+                                If shiftDown Then
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                Else
+                                    control(focus).selectionStart = control(focus).cursorPos
+                                    control(focus).selectionEnd = control(focus).cursorPos
+                                End If
+                                k = 0
                         End Select
-                    Case 65 To 90, 97 To 122 'A-Z, a-z
-                        If showHotKey Or control(menuPanel(totalMenuPanels)).active Or control(focus).type = controlType("menubar") Then
+                    Case 32 To 126
+                        If (control(focus).type = controlType("textbox") Or control(focus).type = controlType("textarea")) And Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 And control(focus).type <> controlType("menubar") Then
+                            temp = control(focus).text
+                            If control(focus).selectionStart <> control(focus).selectionEnd Then
+                                selLo = control(focus).selectionStart
+                                selHi = control(focus).selectionEnd
+                                If selLo > selHi Then selLo = selLo + selHi: selHi = selLo - selHi: selLo = selLo - selHi
+                                control(focus).text = Left$(temp, selLo - 1) + Mid$(temp, selHi)
+                                control(focus).cursorPos = selLo
+                            End If
+                            control(focus).text = Left$(control(focus).text, control(focus).cursorPos - 1) + Chr$(k) + Mid$(control(focus).text, control(focus).cursorPos)
+                            control(focus).cursorPos = control(focus).cursorPos + 1
+                            control(focus).selectionStart = control(focus).cursorPos
+                            control(focus).selectionEnd = control(focus).cursorPos
+                            k = 0
+                        ElseIf showHotKey Or control(menuPanel(totalMenuPanels)).active Or control(focus).type = controlType("menubar") Then
                             Dim As String hotkeySearch
                             hotkeySearch = UCase$(Chr$(k))
                             For i = 1 To UBound(control)
@@ -786,6 +1434,187 @@ Function tui& (action As String) Static
                                     End If
                                 End If
                             Next
+                        End If
+                        If k > 0 Then
+                            For i = 1 To UBound(control)
+                                If control(i).keybind = k Then
+                                    'hitting a control's keybind emulates click
+                                    mb = 0
+                                    mouseDown = -1
+                                    mouseDownOn = i
+                                    hover = i
+                                    focus = i
+                                    k = 0
+                                    Exit For
+                                End If
+                            Next
+                        End If
+                    Case 8
+                        If (control(focus).type = controlType("textbox") Or control(focus).type = controlType("textarea")) And Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 Then
+                            temp = control(focus).text
+                            If control(focus).selectionStart <> control(focus).selectionEnd Then
+                                selLo = control(focus).selectionStart
+                                selHi = control(focus).selectionEnd
+                                If selLo > selHi Then selLo = selLo + selHi: selHi = selLo - selHi: selLo = selLo - selHi
+                                control(focus).text = Left$(temp, selLo - 1) + Mid$(temp, selHi)
+                                control(focus).cursorPos = selLo
+                            ElseIf control(focus).cursorPos > 1 Then
+                                control(focus).text = Left$(temp, control(focus).cursorPos - 2) + Mid$(temp, control(focus).cursorPos)
+                                control(focus).cursorPos = control(focus).cursorPos - 1
+                            End If
+                            control(focus).selectionStart = control(focus).cursorPos
+                            control(focus).selectionEnd = control(focus).cursorPos
+                            k = 0
+                        End If
+                    Case 127, 21184, 21248
+                        If control(focus).type = controlType("textbox") Or control(focus).type = controlType("textarea") Then
+                            temp = control(focus).text
+                            If control(focus).selectionStart <> control(focus).selectionEnd Then
+                                selLo = control(focus).selectionStart
+                                selHi = control(focus).selectionEnd
+                                If selLo > selHi Then selLo = selLo + selHi: selHi = selLo - selHi: selLo = selLo - selHi
+                                control(focus).text = Left$(temp, selLo - 1) + Mid$(temp, selHi)
+                                control(focus).cursorPos = selLo
+                            ElseIf control(focus).cursorPos <= Len(temp) Then
+                                control(focus).text = Left$(temp, control(focus).cursorPos - 1) + Mid$(temp, control(focus).cursorPos + 1)
+                            End If
+                            control(focus).selectionStart = control(focus).cursorPos
+                            control(focus).selectionEnd = control(focus).cursorPos
+                            k = 0
+                        End If
+                    Case 18176, 19968
+                        If control(focus).type = controlType("listbox") And Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 Then
+                            temp = control(focus).text
+                            GoSub countListboxItems
+                            If lineCount > 0 Then
+                                control(focus).value = 1
+                                this = focus
+                                GoSub listboxSyncScroll
+                            End If
+                            k = 0
+                        ElseIf (control(focus).type = controlType("textbox") Or control(focus).type = controlType("textarea")) And Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 Then
+                            shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                            If control(focus).type = controlType("textarea") Then
+                                temp = control(focus).text
+                                textWidth = control(focus).w - 1
+                                If textWidth < 1 Then textWidth = 1
+                                lineStart = 1
+                                Do
+                                    lineEnd = InStr(lineStart, temp, Chr$(10))
+                                    If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                    rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                    lineLen = Len(rawLineText)
+                                    If lineLen = 0 Then
+                                        If control(focus).cursorPos = lineStart Then
+                                            control(focus).cursorPos = lineStart
+                                            Exit Do
+                                        End If
+                                    Else
+                                        segmentStart = 1
+                                        While segmentStart <= lineLen
+                                            remaining = Mid$(rawLineText, segmentStart)
+                                            If Len(remaining) <= textWidth Then
+                                                segmentLen = Len(remaining)
+                                                segmentAdvance = segmentLen
+                                            Else
+                                                wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                If wrapPos <= 1 Then
+                                                    segmentLen = textWidth
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    segmentLen = wrapPos - 1
+                                                    segmentAdvance = wrapPos
+                                                End If
+                                            End If
+                                            rawSegmentStart = lineStart + segmentStart - 1
+                                            rawSegmentEnd = rawSegmentStart + segmentLen - 1
+                                            If control(focus).cursorPos >= rawSegmentStart And control(focus).cursorPos <= rawSegmentEnd + 1 Then
+                                                control(focus).cursorPos = rawSegmentStart
+                                                Exit Do
+                                            End If
+                                            segmentStart = segmentStart + segmentAdvance
+                                        Wend
+                                    End If
+                                    If lineEnd > Len(temp) Then Exit Do
+                                    lineStart = lineEnd + 1
+                                Loop
+                            Else
+                                control(focus).cursorPos = 1
+                            End If
+                            If shiftDown Then
+                                control(focus).selectionEnd = control(focus).cursorPos
+                            Else
+                                control(focus).selectionStart = control(focus).cursorPos
+                                control(focus).selectionEnd = control(focus).cursorPos
+                            End If
+                            k = 0
+                        End If
+                    Case 20224, 20416
+                        If control(focus).type = controlType("listbox") And Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 Then
+                            temp = control(focus).text
+                            GoSub countListboxItems
+                            If lineCount > 0 Then
+                                control(focus).value = lineCount
+                                this = focus
+                                GoSub listboxSyncScroll
+                            End If
+                            k = 0
+                        ElseIf (control(focus).type = controlType("textbox") Or control(focus).type = controlType("textarea")) And Not showHotKey And control(menuPanel(totalMenuPanels)).active = 0 Then
+                            shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                            If control(focus).type = controlType("textarea") Then
+                                temp = control(focus).text
+                                textWidth = control(focus).w - 1
+                                If textWidth < 1 Then textWidth = 1
+                                lineStart = 1
+                                Do
+                                    lineEnd = InStr(lineStart, temp, Chr$(10))
+                                    If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                                    rawLineText = Mid$(temp, lineStart, lineEnd - lineStart)
+                                    lineLen = Len(rawLineText)
+                                    If lineLen = 0 Then
+                                        If control(focus).cursorPos = lineStart Then
+                                            control(focus).cursorPos = lineStart
+                                            Exit Do
+                                        End If
+                                    Else
+                                        segmentStart = 1
+                                        While segmentStart <= lineLen
+                                            remaining = Mid$(rawLineText, segmentStart)
+                                            If Len(remaining) <= textWidth Then
+                                                segmentLen = Len(remaining)
+                                                segmentAdvance = segmentLen
+                                            Else
+                                                wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                                                If wrapPos <= 1 Then
+                                                    segmentLen = textWidth
+                                                    segmentAdvance = segmentLen
+                                                Else
+                                                    segmentLen = wrapPos - 1
+                                                    segmentAdvance = wrapPos
+                                                End If
+                                            End If
+                                            rawSegmentStart = lineStart + segmentStart - 1
+                                            rawSegmentEnd = rawSegmentStart + segmentLen - 1
+                                            If control(focus).cursorPos >= rawSegmentStart And control(focus).cursorPos <= rawSegmentEnd + 1 Then
+                                                control(focus).cursorPos = rawSegmentEnd + 1
+                                                Exit Do
+                                            End If
+                                            segmentStart = segmentStart + segmentAdvance
+                                        Wend
+                                    End If
+                                    If lineEnd > Len(temp) Then Exit Do
+                                    lineStart = lineEnd + 1
+                                Loop
+                            Else
+                                control(focus).cursorPos = Len(control(focus).text) + 1
+                            End If
+                            If shiftDown Then
+                                control(focus).selectionEnd = control(focus).cursorPos
+                            Else
+                                control(focus).selectionStart = control(focus).cursorPos
+                                control(focus).selectionEnd = control(focus).cursorPos
+                            End If
+                            k = 0
                         End If
                     Case Else
                         If k > 0 Then
@@ -819,6 +1648,11 @@ Function tui& (action As String) Static
                             If control(mouseDownOn).y + control(mouseDownOn).h > _Height Then control(mouseDownOn).y = _Height - control(mouseDownOn).h + 1
                             mouseDownX = mx
                             mouseDownY = my
+                        ElseIf mouseDownOn > 0 And (control(mouseDownOn).type = controlType("textbox") Or control(mouseDownOn).type = controlType("textarea")) Then
+                            GoSub setTextboxCursorFromMouse
+                            control(mouseDownOn).selectionEnd = control(mouseDownOn).cursorPos
+                        ElseIf mouseDownOn > 0 And control(mouseDownOn).type = controlType("listbox") Then
+                            GoSub setListboxFromMouse
                         End If
                     Else
                         mouseDown = -1
@@ -839,7 +1673,20 @@ Function tui& (action As String) Static
                             End If
                         Else
                             draggingForm = 0
-                            If control(mouseDownOn).canReceiveFocus Then focus = hover
+                            If control(mouseDownOn).type = controlType("textbox") Or control(mouseDownOn).type = controlType("textarea") Then
+                                focus = hover
+                                GoSub setTextboxCursorFromMouse
+                                shiftDown = _KeyDown(100304) Or _KeyDown(100303)
+                                If Not shiftDown Then
+                                    control(focus).selectionStart = control(focus).cursorPos
+                                End If
+                                control(focus).selectionEnd = control(focus).cursorPos
+                            ElseIf control(mouseDownOn).type = controlType("listbox") Then
+                                focus = hover
+                                GoSub setListboxFromMouse
+                            ElseIf control(mouseDownOn).canReceiveFocus Then
+                                focus = hover
+                            End If
                         End If
                         mouseDownX = mx
                         mouseDownY = my
@@ -927,6 +1774,15 @@ Function tui& (action As String) Static
                 Case "name": action = control(this).name
                 Case "caption": action = control(this).caption
                 Case "text": action = control(this).text
+                Case "selected"
+                    If control(this).type = controlType("listbox") Then
+                        temp = control(this).text
+                        lineNum = control(this).value
+                        GoSub getListboxItem
+                        action = listItemText
+                    Else
+                        action = ""
+                    End If
             End Select
         Case "set"
             Do
@@ -984,7 +1840,10 @@ Function tui& (action As String) Static
                         End If
 
                         If passed(action, "text") Then
-                            control(this).text = getParam(action, "text")
+                            temp = getParam(action, "text")
+                            temp = Replace$(temp, "\r\n", Chr$(10))
+                            temp = Replace$(temp, "\r", Chr$(10))
+                            control(this).text = Replace$(temp, "\n", Chr$(10))
                         End If
 
                         If passed(action, "w") Then
@@ -1078,8 +1937,17 @@ Function tui& (action As String) Static
     Return
 
     setAutoWidth:
-    control(this).w = Len(control(this).caption)
-    If control(this).type = controlType("checkbox") Then control(this).w = control(this).w + 4
+    Select Case control(this).type
+        Case controlType("textbox")
+            control(this).w = Len(control(this).text)
+            If control(this).w < 10 Then control(this).w = 10
+        Case controlType("checkbox")
+            control(this).w = Len(control(this).caption) + 4
+        Case controlType("listbox")
+            control(this).w = 20
+        Case Else
+            control(this).w = Len(control(this).caption)
+    End Select
     Return
 
     openMenuPanel:
@@ -1161,6 +2029,215 @@ Function tui& (action As String) Static
     oldmy = my
     Return
 
+    setTextboxCursorFromMouse:
+    this = mouseDownOn
+    If this = 0 Then Return
+
+    temp = control(this).text
+    x = control(this).x
+    y = control(this).y
+    this = control(this).parent
+    While this > 0
+        x = x + control(this).x
+        y = y + control(this).y
+        this = control(this).parent
+    Wend
+
+    If control(mouseDownOn).type = controlType("textbox") Then
+        displayStart = 1
+        If Len(temp) > control(mouseDownOn).w Then
+            displayStart = control(mouseDownOn).cursorPos - control(mouseDownOn).w + 1
+            If displayStart < 1 Then displayStart = 1
+            If displayStart + control(mouseDownOn).w - 1 > Len(temp) Then displayStart = Len(temp) - control(mouseDownOn).w + 1
+        End If
+
+        control(mouseDownOn).cursorPos = mx - x + displayStart
+        If control(mouseDownOn).cursorPos < 1 Then control(mouseDownOn).cursorPos = 1
+        If control(mouseDownOn).cursorPos > Len(temp) + 1 Then control(mouseDownOn).cursorPos = Len(temp) + 1
+    Else
+        If control(mouseDownOn).scrollTop < 1 Then control(mouseDownOn).scrollTop = 1
+        textWidth = control(mouseDownOn).w - 1
+        If textWidth < 1 Then textWidth = 1
+        row = my - y + 1
+        If row < 1 Then row = 1
+        If row > control(mouseDownOn).h Then row = control(mouseDownOn).h
+        targetVisualLine = control(mouseDownOn).scrollTop + row - 1
+
+        If mx >= x + control(mouseDownOn).w - 1 Then
+            totalVisualLines = 0
+            lineStart = 1
+            Do
+                lineEnd = InStr(lineStart, temp, Chr$(10))
+                If lineEnd = 0 Then lineEnd = Len(temp) + 1
+                lineLen = lineEnd - lineStart
+                If lineLen = 0 Then
+                    totalVisualLines = totalVisualLines + 1
+                Else
+                    segmentStart = 1
+                    While segmentStart <= lineLen
+                        remaining = Mid$(temp, lineStart + segmentStart - 1)
+                        remaining = Left$(remaining, lineLen - segmentStart + 1)
+                        If Len(remaining) <= textWidth Then
+                            segmentLen = Len(remaining)
+                            segmentAdvance = segmentLen
+                        Else
+                            wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                            If wrapPos <= 1 Then
+                                segmentLen = textWidth
+                                segmentAdvance = segmentLen
+                            Else
+                                segmentLen = wrapPos - 1
+                                segmentAdvance = wrapPos
+                            End If
+                        End If
+                        totalVisualLines = totalVisualLines + 1
+                        segmentStart = segmentStart + segmentAdvance
+                    Wend
+                End If
+                If lineEnd > Len(temp) Then Exit Do
+                lineStart = lineEnd + 1
+            Loop
+            If totalVisualLines < 1 Then totalVisualLines = 1
+            If totalVisualLines > control(mouseDownOn).h And control(mouseDownOn).h > 1 Then
+                control(mouseDownOn).scrollTop = ((row - 1) * (totalVisualLines - control(mouseDownOn).h)) \ (control(mouseDownOn).h - 1) + 1
+                If control(mouseDownOn).scrollTop < 1 Then control(mouseDownOn).scrollTop = 1
+                If control(mouseDownOn).scrollTop > totalVisualLines - control(mouseDownOn).h + 1 Then control(mouseDownOn).scrollTop = totalVisualLines - control(mouseDownOn).h + 1
+            End If
+            Return
+        End If
+
+        mouseTextCol = mx - x + 1
+        If mouseTextCol < 1 Then mouseTextCol = 1
+        If mouseTextCol > textWidth + 1 Then mouseTextCol = textWidth + 1
+
+        visualLine = 1
+        lineStart = 1
+        Do
+            lineEnd = InStr(lineStart, temp, Chr$(10))
+            If lineEnd = 0 Then
+                lineEnd = Len(temp) + 1
+            End If
+            lineLen = lineEnd - lineStart
+            If lineLen = 0 Then
+                If visualLine = targetVisualLine Then
+                    control(mouseDownOn).cursorPos = lineStart
+                    Return
+                End If
+                visualLine = visualLine + 1
+            Else
+                segmentStart = 1
+                While segmentStart <= lineLen
+                    remaining = Mid$(temp, lineStart + segmentStart - 1)
+                    remaining = Left$(remaining, lineLen - segmentStart + 1)
+                    If Len(remaining) <= textWidth Then
+                        segmentLen = Len(remaining)
+                        segmentAdvance = segmentLen
+                    Else
+                        wrapPos = _InStrRev(Left$(remaining, textWidth + 1), " ")
+                        If wrapPos <= 1 Then
+                            segmentLen = textWidth
+                            segmentAdvance = segmentLen
+                        Else
+                            segmentLen = wrapPos - 1
+                            segmentAdvance = wrapPos
+                        End If
+                    End If
+                    If visualLine = targetVisualLine Then
+                        control(mouseDownOn).cursorPos = lineStart + segmentStart + mouseTextCol - 2
+                        If control(mouseDownOn).cursorPos > lineStart + segmentStart + segmentLen - 1 Then control(mouseDownOn).cursorPos = lineStart + segmentStart + segmentLen - 1
+                        If mouseTextCol > segmentLen Then control(mouseDownOn).cursorPos = lineStart + segmentStart + segmentLen - 1
+                        If control(mouseDownOn).cursorPos < lineStart + segmentStart - 1 Then control(mouseDownOn).cursorPos = lineStart + segmentStart - 1
+                        Return
+                    End If
+                    visualLine = visualLine + 1
+                    segmentStart = segmentStart + segmentAdvance
+                Wend
+            End If
+            If lineEnd > Len(temp) Then Exit Do
+            lineStart = lineEnd + 1
+        Loop
+        control(mouseDownOn).cursorPos = Len(temp) + 1
+    End If
+    Return
+
+    countListboxItems:
+    lineCount = 0
+    If Len(temp) = 0 Then Return
+    lineStart = 1
+    Do
+        lineCount = lineCount + 1
+        lineEnd = InStr(lineStart, temp, Chr$(10))
+        If lineEnd = 0 Then Exit Do
+        lineStart = lineEnd + 1
+    Loop
+    Return
+
+    getListboxItem:
+    listItemText = ""
+    If lineNum < 1 Then Return
+    lineStart = 1
+    For j = 1 To lineNum - 1
+        lineEnd = InStr(lineStart, temp, Chr$(10))
+        If lineEnd = 0 Then Return
+        lineStart = lineEnd + 1
+    Next
+    lineEnd = InStr(lineStart, temp, Chr$(10))
+    If lineEnd = 0 Then
+        listItemText = Mid$(temp, lineStart)
+    Else
+        listItemText = Mid$(temp, lineStart, lineEnd - lineStart)
+    End If
+    Return
+
+    listboxSyncScroll:
+    row = control(this).h - 2
+    If row < 1 Then row = 1
+    If control(this).value < 1 Then Return
+    If control(this).scrollTop < 1 Then control(this).scrollTop = 1
+    If control(this).value >= control(this).scrollTop + row Then control(this).scrollTop = control(this).value - row + 1
+    If control(this).value < control(this).scrollTop Then control(this).scrollTop = control(this).value
+    If lineCount > row Then
+        If control(this).scrollTop > lineCount - row + 1 Then control(this).scrollTop = lineCount - row + 1
+    End If
+    If control(this).scrollTop < 1 Then control(this).scrollTop = 1
+    Return
+
+    setListboxFromMouse:
+    this = mouseDownOn
+    If this = 0 Then Return
+    temp = control(this).text
+    GoSub countListboxItems
+    x = control(this).x
+    y = control(this).y
+    j = control(this).parent
+    While j > 0
+        x = x + control(j).x
+        y = y + control(j).y
+        j = control(j).parent
+    Wend
+    row = control(this).h - 2
+    If row < 1 Then row = 1
+    If mx >= x + control(this).w - 1 And lineCount > row Then
+        targetVisualLine = my - y
+        If targetVisualLine < 1 Then targetVisualLine = 1
+        If targetVisualLine > row Then targetVisualLine = row
+        If lineCount > row And row > 1 Then
+            control(this).scrollTop = ((targetVisualLine - 1) * (lineCount - row)) \ (row - 1) + 1
+            If control(this).scrollTop < 1 Then control(this).scrollTop = 1
+            If control(this).scrollTop > lineCount - row + 1 Then control(this).scrollTop = lineCount - row + 1
+        End If
+        Return
+    End If
+    targetVisualLine = my - y
+    If targetVisualLine < 1 Then targetVisualLine = 1
+    If targetVisualLine > row Then targetVisualLine = row
+    lineNum = control(this).scrollTop + targetVisualLine - 1
+    If lineNum >= 1 And lineNum <= lineCount Then
+        control(this).value = lineNum
+        GoSub listboxSyncScroll
+    End If
+    Return
+
 End Function
 
 Sub tuiSetColor (fg As Integer, bg As Integer)
@@ -1170,7 +2247,7 @@ End Sub
 
 Function controlType& (__a$)
     Dim typeList$
-    typeList$ = "@form@button@checkbox@label@textbox@menubar@menuitem@menupanel@"
+    typeList$ = "@form@button@checkbox@label@textbox@textarea@listbox@menubar@menuitem@menupanel@"
 
     controlType& = InStr(typeList$, LCase$("@" + __a$ + "@"))
 End Function
@@ -1219,6 +2296,27 @@ Function getParam$ (__action$, __parameter$)
 
     result = Mid$(os, position + Len(p))
     getParam$ = Left$(result, InStr(result, sep) - 1)
+End Function
+
+Function Replace$ (__base$, __search$, __replace$)
+    Dim As String result, segment
+    Dim As Long position, start
+
+    If Len(__search$) = 0 Then
+        Replace$ = __base$
+        Exit Function
+    End If
+
+    result$ = ""
+    start = 1
+    position = InStr(start, __base$, __search$)
+    While position > 0
+        result$ = result$ + Mid$(__base$, start, position - start) + __replace$
+        start = position + Len(__search$)
+        position = InStr(start, __base$, __search$)
+    Wend
+    result$ = result$ + Mid$(__base$, start)
+    Replace$ = result$
 End Function
 
 Function getNextParam$ (__action$) Static
